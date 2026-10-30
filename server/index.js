@@ -45,7 +45,7 @@ app.post('/api/requests', upload.single('file'), async (req,res,next) => { try {
 app.get('/api/requests/:id/owner', (req,res) => {const r=ownerAuth(req); if(!r)return res.sendStatus(404); res.json(info(r));});
 app.get('/api/requests/:id/owner/pdf', (req,res) => {const r=ownerAuth(req); if(!r)return res.sendStatus(404); res.type('application/pdf').send(Buffer.from(r.pdf));});
 app.get('/api/requests/:id/sign', (req,res) => {const auth=signerAuth(req); if(!auth)return res.sendStatus(404); res.json({...info(auth.r),signer:auth.s.name,completed:!!auth.s.signed,ready:active(auth.s)});});
-app.get('/api/requests/:id/sign/pdf', (req,res) => {const a=signerAuth(req); if(!a)return res.sendStatus(404); if(!active(a.s))return res.status(409).json({error:'Документ пока недоступен для подписи.'}); res.type('application/pdf').send(Buffer.from(a.r.pdf));});
+app.get('/api/requests/:id/sign/pdf', (req,res) => {const a=signerAuth(req); if(!a)return res.sendStatus(404); if(!a.s.signed&&!active(a.s))return res.status(409).json({error:'Документ пока недоступен для подписи.'}); res.type('application/pdf').send(Buffer.from(a.r.pdf));});
 app.post('/api/requests/:id/sign', async (req,res,next) => {try {
  const a=signerAuth(req); if(!a)return res.sendStatus(404); if(!active(a.s))return res.status(409).json({error:'Документ уже подписан или ожидает другого участника.'});
  const {page,x,y,width,height,image}=req.body; if(!Number.isInteger(page)||![x,y,width,height].every(Number.isFinite)||x<0||y<0||width<=0||height<=0||x+width>1.0001||y+height>1.0001||typeof image!=='string'||!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(image)) return res.status(400).json({error:'Некорректное поле подписи.'});

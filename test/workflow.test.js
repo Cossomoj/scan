@@ -22,6 +22,7 @@ test('private links enforce signing order and produce a valid signed PDF',async(
    assert.equal((await sign(request.signers[1].token)).status,409);
    assert.equal((await sign(request.signers[0].token)).status,200);
    assert.equal((await sign(request.signers[0].token)).status,409);
+   assert.equal((await fetch(base+'/sign/pdf',{headers:auth(request.signers[0].token)})).status,200);
    assert.equal((await fetch(base+'/sign/pdf',{headers:auth(request.signers[1].token)})).status,200);
    assert.equal((await sign(request.signers[1].token)).status,200);
    response=await fetch(base+'/owner',{headers:auth(request.owner)});const status=await response.json();assert.ok(status.signers.every(s=>s.signed));
