@@ -1,0 +1,62 @@
+import express from 'express';
+import multer from 'multer';
+import { DatabaseSync } from 'node:sqlite';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { mkdirSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { PDFDocument, degrees } from 'pdf-lib';
+
+const dataDir = resolve(process.env.DATA_DIR || './data');
+mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+const db = new DatabaseSync(resolve(dataDir, 'sign.sqlite'));
+db.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
+ CREATE TABLE IF NOT EXISTS requests (id TEXT PRIMARY KEY, owner_hash TEXT NOT NULL, name TEXT NOT NULL, pdf BLOB NOT NULL, created INTEGER NOT NULL, expires INTEGER NOT NULL);
+ CREATE TABLE IF NOT EXISTS signers (id TEXT PRIMARY KEY, request_id TEXT NOT NULL REFERENCES requests(id) ON DELETE CASCADE, position INTEGER NOT NULL, name TEXT NOT NULL, token_hash TEXT NOT NULL, signed INTEGER, UNIQUE(request_id,position));`);
+const app = express();
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
+app.use((req, res, next) => { res.set({'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','Cache-Control':'no-store'}); next(); });
+const buckets=new Map();
+app.use('/api',(req,res,next)=>{const period=req.method==='POST' && req.path==='/requests' ? 3600000 : 60000, limit=period===3600000 ? 10 : 120, key=req.ip+':'+period, time=Date.now(); let bucket=buckets.get(key); if(!bucket||bucket.until<=time) bucket={count:0,until:time+period}; bucket.count++;buckets.set(key,bucket); if(bucket.count>limit)return res.status(429).json({error:'Слишком много запросов. Попробуйте позже.'});next();});
+setInterval(()=>{const time=Date.now();for(const [key,b] of buckets)if(b.until<=time)buckets.delete(key)},60000).unref();
+app.use(express.json({ limit: '2mb' }));
+const upload = multer({storage:multer.memoryStorage(),limits:{fileSize:20*1024*1024, files:1, fields:3}});
+const hash = (s) => createHash('sha256').update(s).digest('hex');
+const token = () => randomBytes(32).toString('base64url');
+const bearer = (req) => /^Bearer ([A-Za-z0-9_-]{43})$/.exec(req.get('authorization') || '')?.[1] || '';
+const now = () => Date.now();
+const cleanName = (s, max=120) => typeof s === 'string' ? s.trim().replace(/[\u0000-\u001f\u007f]/g,'').slice(0,max) : '';
+const getRequest = (id) => db.prepare('SELECT * FROM requests WHERE id=? AND expires>?').get(id,now());
+const ownerAuth = (req) => { const r=getRequest(req.params.id); return r && hash(bearer(req))===r.owner_hash ? r : null; };
+const signerAuth = (req) => { const r=getRequest(req.params.id); if(!r) return null; const s=db.prepare('SELECT * FROM signers WHERE request_id=? AND token_hash=?').get(r.id,hash(bearer(req))); return s ? {r,s} : null; };
+const active = (s) => !s.signed && !db.prepare('SELECT id FROM signers WHERE request_id=? AND position<? AND signed IS NULL').get(s.request_id,s.position);
+const info = (r) => ({id:r.id,name:r.name,created:r.created,expires:r.expires,signers:db.prepare('SELECT position,name,signed FROM signers WHERE request_id=? ORDER BY position').all(r.id)});
+const validatePdf = async (bytes) => { if (!bytes || bytes.length < 5 || Buffer.from(bytes).subarray(0,5).toString() !== '%PDF-') throw new Error('Выберите корректный PDF-файл.'); const pdf=await PDFDocument.load(bytes); if(!pdf.getPageCount() || pdf.getPageCount()>100) throw new Error('Поддерживается до 100 страниц.'); if(pdf.getPages().some(p => {const c=p.getCropBox(),m=p.getMediaBox();return p.getRotation().angle % 360 !== 0 || m.x!==0 || m.y!==0 || c.x!==m.x || c.y!==m.y || c.width!==m.width || c.height!==m.height;})) throw new Error('Повернутые или обрезанные страницы пока не поддерживаются.'); return pdf; };
+app.get('/api/health', (_req,res) => res.json({ok:true}));
+app.post('/api/requests', upload.single('file'), async (req,res,next) => { try {
+  const names=JSON.parse(req.body.signers || '[]'); if(!Array.isArray(names)||names.length<1||names.length>10) return res.status(400).json({error:'Укажите от 1 до 10 подписантов.'});
+  const signers=names.map(x=>cleanName(x,80)); if(signers.some(x=>!x)) return res.status(400).json({error:'Укажите имя каждого подписанта.'});
+  if(Number(db.prepare('SELECT COALESCE(SUM(length(pdf)),0) AS bytes FROM requests').get().bytes)+(req.file?.size||0)>1024*1024*1024)return res.status(503).json({error:'Хранилище заполнено. Попробуйте позже.'});
+  await validatePdf(req.file?.buffer); const id=randomUUID(), owner=token(), created=now(), expires=created+7*86400000;
+  const links=signers.map((name,position)=>({name,position,id:randomUUID(),token:token()}));
+  db.exec('BEGIN IMMEDIATE'); try { db.prepare('INSERT INTO requests VALUES (?,?,?,?,?,?)').run(id,hash(owner),cleanName(req.file.originalname)||'document.pdf',req.file.buffer,created,expires); const add=db.prepare('INSERT INTO signers (id,request_id,position,name,token_hash) VALUES (?,?,?,?,?)'); for(const s of links) add.run(s.id,id,s.position,s.name,hash(s.token)); db.exec('COMMIT'); } catch(e) {db.exec('ROLLBACK'); throw e;}
+  res.status(201).json({id,owner,expires,signers:links.map(({name,token})=>({name,token}))});
+} catch(e) {next(e)} });
+app.get('/api/requests/:id/owner', (req,res) => {const r=ownerAuth(req); if(!r)return res.sendStatus(404); res.json(info(r));});
+app.get('/api/requests/:id/owner/pdf', (req,res) => {const r=ownerAuth(req); if(!r)return res.sendStatus(404); res.type('application/pdf').send(Buffer.from(r.pdf));});
+app.get('/api/requests/:id/sign', (req,res) => {const auth=signerAuth(req); if(!auth)return res.sendStatus(404); res.json({...info(auth.r),signer:auth.s.name,completed:!!auth.s.signed,ready:active(auth.s)});});
+app.get('/api/requests/:id/sign/pdf', (req,res) => {const a=signerAuth(req); if(!a)return res.sendStatus(404); if(!active(a.s))return res.status(409).json({error:'Документ пока недоступен для подписи.'}); res.type('application/pdf').send(Buffer.from(a.r.pdf));});
+app.post('/api/requests/:id/sign', async (req,res,next) => {try {
+ const a=signerAuth(req); if(!a)return res.sendStatus(404); if(!active(a.s))return res.status(409).json({error:'Документ уже подписан или ожидает другого участника.'});
+ const {page,x,y,width,height,image}=req.body; if(!Number.isInteger(page)||![x,y,width,height].every(Number.isFinite)||x<0||y<0||width<=0||height<=0||x+width>1.0001||y+height>1.0001||typeof image!=='string'||!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(image)) return res.status(400).json({error:'Некорректное поле подписи.'});
+ const img=Buffer.from(image.split(',')[1],'base64'); if(img.length>1024*1024)return res.status(400).json({error:'Изображение подписи слишком большое.'});
+ const pdf=await validatePdf(a.r.pdf); const p=pdf.getPages()[page]; if(!p)return res.status(400).json({error:'Страница не найдена.'}); const embedded=await pdf.embedPng(img); const {width:pw,height:ph}=p.getSize(); p.drawImage(embedded,{x:x*pw,y:(1-y-height)*ph,width:width*pw,height:height*ph,rotate:degrees(0)}); const output=await pdf.save();
+ db.exec('BEGIN IMMEDIATE'); try { const fresh=db.prepare('SELECT signed FROM signers WHERE id=?').get(a.s.id); if(fresh.signed || !active(a.s)) {db.exec('ROLLBACK'); return res.status(409).json({error:'Статус документа изменился.'});} db.prepare('UPDATE requests SET pdf=? WHERE id=?').run(output,a.r.id); db.prepare('UPDATE signers SET signed=? WHERE id=?').run(now(),a.s.id); db.exec('COMMIT'); } catch(e) {db.exec('ROLLBACK'); throw e;} res.json({ok:true});
+} catch(e) {next(e)} });
+app.use('/api',(_req,res)=>res.status(404).json({error:'Не найдено.'}));
+app.use(express.static(resolve('dist'),{index:'index.html',maxAge:'1h'}));
+app.get('/{*path}',(_req,res)=>res.sendFile(resolve('dist/index.html')));
+app.use((err,req,res,_next)=>{console.error(err.message); if(err instanceof multer.MulterError) return res.status(400).json({error:'Файл слишком большой (максимум 20 МБ).'}); res.status(400).json({error:err.message?.includes('PDF') ? err.message : 'Не удалось обработать документ. Проверьте файл и попробуйте снова.'});});
+const cleanup=()=>db.prepare('DELETE FROM requests WHERE expires<=?').run(now()); cleanup(); setInterval(cleanup,60*60*1000).unref();
+app.listen(process.env.PORT || 3000,'0.0.0.0',()=>console.log('Listening on port '+(process.env.PORT||3000)));
+
