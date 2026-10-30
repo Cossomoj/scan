@@ -11,10 +11,32 @@ export function findInkBounds({data,width,height},square=false){
   return {x:x0/width,y:y0/height,w:(x1-x0)/width,h:(y1-y0)/height};
 }
 export function removePaper(imageData,strength){
-  const d=imageData.data, amount=Math.max(0,Math.min(100,Number(strength)));
+  const {data:d,width,height}=imageData, amount=Math.max(0,Math.min(100,Number(strength)));
   if(amount===0)return imageData;
-  const threshold=12+amount*1.55;
-  for(let i=0;i<d.length;i+=4){const darkness=255-Math.min(d[i],d[i+1],d[i+2]);const alpha=Math.min(1,Math.max(0,(darkness-threshold*.2)/(threshold*.8)));d[i+3]=Math.round(d[i+3]*alpha)}
+  // Estimate the colour of the paper rather than assuming it is pure white.
+  const hist=[new Uint32Array(256),new Uint32Array(256),new Uint32Array(256)];let count=0;
+  for(let i=0;i<d.length;i+=4)if(d[i+3]>128){for(let c=0;c<3;c++)hist[c][d[i+c]]++;count++}
+  const paper=hist.map(h=>{let total=0;for(let v=0;v<256;v++){total+=h[v];if(total>=count*.9)return v}return 255});
+  const threshold=8+amount*1.2;
+  // Thin, long grey printed rules are background, even if darker than the paper.
+  // Restrict this to narrow horizontal bands so that broad grey ink is retained.
+  const lineRows=new Uint8Array(height||0);
+  if(width&&height&&width>=30){
+    const candidates=new Uint8Array(height),gapLimit=Math.max(2,Math.floor(width*.02));
+    for(let y=0;y<height;y++){let start=-1,last=-1;for(let x=0;x<=width;x++){
+      const i=(y*width+x)*4,r=d[i],g=d[i+1],b=d[i+2],max=Math.max(r,g,b),min=Math.min(r,g,b);
+      const grey=x<width&&d[i+3]>128&&min>=65&&max<230&&max-min<=18;
+      if(grey){if(start<0)start=x;last=x}
+      if(start>=0&&(x===width||x-last>gapLimit)){if(last-start+1>=Math.max(25,width*.35))candidates[y]=1;start=-1;last=-1}
+    }}
+    for(let y=0;y<height;){if(!candidates[y]){y++;continue}let end=y+1;while(end<height&&candidates[end])end++;if(end-y<=Math.max(3,Math.ceil(height*.04)))lineRows.fill(1,y,end);y=end}
+  }
+  for(let i=0;i<d.length;i+=4){
+    const difference=Math.max(paper[0]-d[i],paper[1]-d[i+1],paper[2]-d[i+2]);
+    let opacity=Math.min(1,Math.max(0,(difference-threshold*.35)/(threshold*.65)));
+    if(width&&lineRows[Math.floor(i/4/width)]){const max=Math.max(d[i],d[i+1],d[i+2]),min=Math.min(d[i],d[i+1],d[i+2]);if(min>=65&&max<230&&max-min<=18)opacity*=Math.max(0,1-amount/35)}
+    d[i+3]=Math.round(d[i+3]*opacity);
+  }
   return imageData;
 }
 export function previewImage(img,crop,strength,maxWidth=900){
