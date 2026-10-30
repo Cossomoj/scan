@@ -21,6 +21,7 @@ app.use('/api',(req,res,next)=>{const period=req.method==='POST' && req.path==='
 setInterval(()=>{const time=Date.now();for(const [key,b] of buckets)if(b.until<=time)buckets.delete(key)},60000).unref();
 app.use(express.json({ limit: '2mb' }));
 const upload = multer({storage:multer.memoryStorage(),limits:{fileSize:20*1024*1024, files:1, fields:3}});
+const photoUpload = multer({storage:multer.memoryStorage(),limits:{fileSize:10*1024*1024,files:1,fields:0}});
 const hash = (s) => createHash('sha256').update(s).digest('hex');
 const token = () => randomBytes(32).toString('base64url');
 const bearer = (req) => /^Bearer ([A-Za-z0-9_-]{43})$/.exec(req.get('authorization') || '')?.[1] || '';
@@ -33,6 +34,14 @@ const active = (s) => !s.signed && !db.prepare('SELECT id FROM signers WHERE req
 const info = (r) => ({id:r.id,name:r.name,created:r.created,expires:r.expires,signers:db.prepare('SELECT position,name,signed FROM signers WHERE request_id=? ORDER BY position').all(r.id)});
 const validatePdf = async (bytes) => { if (!bytes || bytes.length < 5 || Buffer.from(bytes).subarray(0,5).toString() !== '%PDF-') throw new Error('Выберите корректный PDF-файл.'); const pdf=await PDFDocument.load(bytes); if(!pdf.getPageCount() || pdf.getPageCount()>100) throw new Error('Поддерживается до 100 страниц.'); if(pdf.getPages().some(p => {const c=p.getCropBox(),m=p.getMediaBox();return p.getRotation().angle % 360 !== 0 || m.x!==0 || m.y!==0 || c.x!==m.x || c.y!==m.y || c.width!==m.width || c.height!==m.height;})) throw new Error('Повернутые или обрезанные страницы пока не поддерживаются.'); return pdf; };
 app.get('/api/health', (_req,res) => res.json({ok:true}));
+// Temporary hand-off is held only in memory and consumed once by the desktop.
+const photoSessions=new Map();
+const purgePhotos=()=>{for(const [id,s] of photoSessions)if(s.expires<=now())photoSessions.delete(id)};
+app.post('/api/photo-sessions',(_req,res)=>{purgePhotos();if(photoSessions.size>=12)return res.status(503).json({error:'Сервис передачи занят. Попробуйте позже.'});const id=randomUUID(),desktop=token(),phone=token(),expires=now()+10*60000;photoSessions.set(id,{desktop:hash(desktop),phone:hash(phone),expires,photo:null});res.status(201).json({id,desktop,phone,expires});});
+app.post('/api/photo-sessions/:id/photo',photoUpload.single('file'),(req,res)=>{purgePhotos();const s=photoSessions.get(req.params.id);if(!s||hash(bearer(req))!==s.phone)return res.sendStatus(404);if(s.photo)return res.status(409).json({error:'Фотография уже загружена.'});const b=req.file?.buffer;let type='',name='';if(b?.length>=8&&b.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))){type='image/png';name='photo.png'}else if(b?.length>=3&&b[0]===255&&b[1]===216&&b[2]===255){type='image/jpeg';name='photo.jpg'}else if(b?.length>=12&&b.subarray(0,4).toString()==='RIFF'&&b.subarray(8,12).toString()==='WEBP'){type='image/webp';name='photo.webp'}else return res.status(400).json({error:'Выберите фото PNG, JPG или WebP.'});s.photo={bytes:b,type,name};res.json({ok:true});});
+app.get('/api/photo-sessions/:id/photo',(req,res)=>{purgePhotos();const s=photoSessions.get(req.params.id);if(!s||hash(bearer(req))!==s.desktop)return res.sendStatus(404);if(!s.photo)return res.sendStatus(204);res.set({'Content-Type':s.photo.type,'X-Photo-Name':s.photo.name});const data=s.photo.bytes;photoSessions.delete(req.params.id);res.send(data)});
+app.delete('/api/photo-sessions/:id',(req,res)=>{const s=photoSessions.get(req.params.id);if(!s||hash(bearer(req))!==s.desktop)return res.sendStatus(404);photoSessions.delete(req.params.id);res.sendStatus(204)});
+setInterval(purgePhotos,60000).unref();
 app.post('/api/requests', upload.single('file'), async (req,res,next) => { try {
   const names=JSON.parse(req.body.signers || '[]'); if(!Array.isArray(names)||names.length<1||names.length>10) return res.status(400).json({error:'Укажите от 1 до 10 подписантов.'});
   const signers=names.map(x=>cleanName(x,80)); if(signers.some(x=>!x)) return res.status(400).json({error:'Укажите имя каждого подписанта.'});
@@ -59,4 +68,3 @@ app.get('/{*path}',(_req,res)=>res.sendFile(resolve('dist/index.html')));
 app.use((err,req,res,_next)=>{console.error(err.message); if(err instanceof multer.MulterError) return res.status(400).json({error:'Файл слишком большой (максимум 20 МБ).'}); res.status(400).json({error:err.message?.includes('PDF') ? err.message : 'Не удалось обработать документ. Проверьте файл и попробуйте снова.'});});
 const cleanup=()=>{const result=db.prepare('DELETE FROM requests WHERE expires<=?').run(now());if(result.changes)db.exec('PRAGMA wal_checkpoint(TRUNCATE)');}; cleanup(); setInterval(cleanup,60*60*1000).unref();
 app.listen(process.env.PORT || 3000,'0.0.0.0',()=>console.log('Listening on port '+(process.env.PORT||3000)));
-

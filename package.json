@@ -15,12 +15,14 @@
     "nodemailer": "^7.0.10",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.4.296",
+    "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "vite": "^7.1.9"
   },
-  "engines": { "node": ">=24" }
+  "engines": {
+    "node": ">=24"
+  }
 }
-

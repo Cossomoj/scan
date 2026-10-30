@@ -1,4 +1,4 @@
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_PNG_DATA_LENGTH = 1_300_000;
 const SVG_ELEMENTS = new Set(['svg','g','path','rect','circle','ellipse','line','polyline','polygon','defs','clipPath','mask','linearGradient','radialGradient','stop','title','desc']);
 
@@ -20,8 +20,8 @@ function safeSvg(text) {
   return new Blob([new XMLSerializer().serializeToString(doc.documentElement)], {type:'image/svg+xml'});
 }
 
-export async function signatureFileToPng(file) {
-  if (!file || file.size > MAX_FILE_SIZE) throw new Error('Выберите изображение размером не более 5 МБ.');
+export async function loadSignatureImage(file) {
+  if (!file || file.size > MAX_FILE_SIZE) throw new Error('Выберите изображение размером не более 10 МБ.');
   const name = file.name.toLowerCase();
   const bytes = new Uint8Array(await file.arrayBuffer());
   let source;
@@ -29,10 +29,12 @@ export async function signatureFileToPng(file) {
     source = new Blob([bytes], {type:'image/png'});
   } else if (/\.jpe?g$/.test(name) && bytes[0]===255 && bytes[1]===216 && bytes[2]===255) {
     source = new Blob([bytes], {type:'image/jpeg'});
+  } else if (name.endsWith('.webp') && bytes.length >= 12 && String.fromCharCode(...bytes.slice(0,4))==='RIFF' && String.fromCharCode(...bytes.slice(8,12))==='WEBP') {
+    source = new Blob([bytes], {type:'image/webp'});
   } else if (name.endsWith('.svg')) {
     source = safeSvg(new TextDecoder().decode(bytes));
   } else {
-    throw new Error('Выберите изображение PNG, JPG или SVG.');
+    throw new Error('Выберите изображение PNG, JPG, WebP или SVG.');
   }
   const url = URL.createObjectURL(source);
   try {
@@ -41,6 +43,14 @@ export async function signatureFileToPng(file) {
     if (!image.naturalWidth || !image.naturalHeight || image.naturalWidth > 16000 || image.naturalHeight > 16000 || image.naturalWidth * image.naturalHeight > 25000000) {
       throw new Error('Изображение слишком большое. Уменьшите его и попробуйте снова.');
     }
+    image.release=()=>URL.revokeObjectURL(url);
+    return image;
+  } catch(error) { URL.revokeObjectURL(url); throw error; }
+}
+
+export async function signatureFileToPng(file) {
+  const image = await loadSignatureImage(file);
+  try {
     // Keep the same 8:3 canvas as drawn signatures without stretching the uploaded image.
     for (const width of [800,600,400]) {
       const canvas=document.createElement('canvas');canvas.width=width;canvas.height=Math.round(width*3/8);
@@ -51,6 +61,5 @@ export async function signatureFileToPng(file) {
       if(png.length<=MAX_PNG_DATA_LENGTH)return png;
     }
     throw new Error('Не удалось уменьшить изображение подписи.');
-  } finally { URL.revokeObjectURL(url); }
+  } finally { image.release(); }
 }
-
