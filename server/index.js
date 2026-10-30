@@ -9,7 +9,7 @@ import { PDFDocument, degrees } from 'pdf-lib';
 const dataDir = resolve(process.env.DATA_DIR || './data');
 mkdirSync(dataDir, { recursive: true, mode: 0o700 });
 const db = new DatabaseSync(resolve(dataDir, 'sign.sqlite'));
-db.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
+db.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA secure_delete=ON;
  CREATE TABLE IF NOT EXISTS requests (id TEXT PRIMARY KEY, owner_hash TEXT NOT NULL, name TEXT NOT NULL, pdf BLOB NOT NULL, created INTEGER NOT NULL, expires INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS signers (id TEXT PRIMARY KEY, request_id TEXT NOT NULL REFERENCES requests(id) ON DELETE CASCADE, position INTEGER NOT NULL, name TEXT NOT NULL, token_hash TEXT NOT NULL, signed INTEGER, UNIQUE(request_id,position));`);
 const app = express();
@@ -57,6 +57,6 @@ app.use('/api',(_req,res)=>res.status(404).json({error:'Не найдено.'}))
 app.use(express.static(resolve('dist'),{index:'index.html',maxAge:'1h'}));
 app.get('/{*path}',(_req,res)=>res.sendFile(resolve('dist/index.html')));
 app.use((err,req,res,_next)=>{console.error(err.message); if(err instanceof multer.MulterError) return res.status(400).json({error:'Файл слишком большой (максимум 20 МБ).'}); res.status(400).json({error:err.message?.includes('PDF') ? err.message : 'Не удалось обработать документ. Проверьте файл и попробуйте снова.'});});
-const cleanup=()=>db.prepare('DELETE FROM requests WHERE expires<=?').run(now()); cleanup(); setInterval(cleanup,60*60*1000).unref();
+const cleanup=()=>{const result=db.prepare('DELETE FROM requests WHERE expires<=?').run(now());if(result.changes)db.exec('PRAGMA wal_checkpoint(TRUNCATE)');}; cleanup(); setInterval(cleanup,60*60*1000).unref();
 app.listen(process.env.PORT || 3000,'0.0.0.0',()=>console.log('Listening on port '+(process.env.PORT||3000)));
 
