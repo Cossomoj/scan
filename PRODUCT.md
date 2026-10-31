@@ -8,7 +8,7 @@ web
 
 ## Product Purpose
 
-A Russian-language PDF signing and filling service at gamelife.shop. The user wants a modern, interactive homepage that makes the workflow clear to first-time visitors.
+A Russian-language PDF signing and filling service at zapdf.ru. The previous gamelife.shop address stays available during migration so existing local browser data and signing links remain accessible.
 
 ## Users
 

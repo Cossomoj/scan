@@ -2,6 +2,12 @@ services:
   app:
     build: .
     restart: unless-stopped
+    environment:
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       - sign_data:/app/data
     networks:
@@ -15,6 +21,8 @@ services:
   proxy:
     image: caddy:2.10-alpine
     restart: unless-stopped
+    labels:
+      com.list-sign.config-version: zapdf-2026-10
     ports:
       - "80:80"
       - "443:443"
@@ -35,4 +43,3 @@ volumes:
   caddy_config:
 networks:
   internal:
-

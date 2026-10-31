@@ -7,6 +7,7 @@ import {signatureFileToPng} from './signature.js';
 import DocumentEditor from './DocumentEditor.jsx';
 import Landing from './Landing.jsx';
 import {createExamplePdf} from './examplePdf.js';
+import {AccountProvider} from './Account.jsx';
 import SignatureWizard,{PhoneUpload} from './SignatureWizard.jsx';
 import './style.css';
 import './editor.css';
@@ -62,4 +63,4 @@ return <>{stage!=='home'&&!(stage==='editor'&&mode==='self')&&stage!=='phone'&&<
 {(stage==='signed'||stage==='downloaded')&&<main className="flow success"><div className="success-icon">✓</div><span className="eyebrow">ГОТОВО</span><h1>{stage==='signed'?'Документ подписан.':'Подпись добавлена.'}</h1><p className="muted">{stage==='signed'?'Ваша подпись сохранена. По личной ссылке можно скачать актуальную версию документа, пока ссылка действует.':'Подписанный PDF скачивается на ваше устройство.'}</p>{stage==='signed'&&<button className="primary" disabled={busy} onClick={getSignerPdf}>Скачать PDF ↗</button>}{error&&stage==='signed'&&<p className="error">{error}</p>} <button className="secondary" onClick={home}>На главную ↗</button></main>}
 </>}
 function LinkRow({title,value,copy}){return <div className="link-row"><strong>{title}</strong><div><input readOnly value={value} onFocus={e=>e.target.select()}/><button onClick={()=>copy(value)}>Копировать</button></div></div>}
-createRoot(document.getElementById('root')).render(<App/>);
+createRoot(document.getElementById('root')).render(<AccountProvider><App/></AccountProvider>);

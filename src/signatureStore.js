@@ -1,5 +1,10 @@
+import {getAccount} from './authState.js';
 function database(){return new Promise((resolve,reject)=>{const request=indexedDB.open('list-signatures',1);request.onupgradeneeded=()=>request.result.createObjectStore('items',{keyPath:'id'});request.onerror=()=>reject(request.error);request.onsuccess=()=>resolve(request.result)})}
 async function operation(mode,action){const db=await database();return new Promise((resolve,reject)=>{const tx=db.transaction('items',mode),store=tx.objectStore('items');let request;try{request=action(store)}catch(e){db.close();reject(e);return}tx.oncomplete=()=>{db.close();resolve(request?.result)};tx.onerror=()=>{db.close();reject(tx.error)}})}
-export const listSignatures=()=>operation('readonly',store=>store.getAll());
-export const saveSignature=item=>operation('readwrite',store=>store.put(item));
-export const deleteSignature=id=>operation('readwrite',store=>store.delete(id));
+export const listLocalSignatures=()=>operation('readonly',store=>store.getAll());
+async function cloud(path,options={}){const identity=getAccount();if(!identity)throw Error('Войдите в аккаунт.');const r=await fetch('/api/account/assets'+path,{...options,headers:{'Content-Type':'application/json',...options.headers}});let data;try{data=await r.json()}catch{}if(!r.ok)throw Error(data?.error||'Не удалось связаться с хранилищем.');if(getAccount()?.email!==identity.email)throw Error('Аккаунт изменился. Повторите действие.');return data}
+function account(){const user=getAccount();if(user===undefined)throw Error('Проверяем аккаунт. Попробуйте ещё раз.');return user}
+export const listSignatures=()=>account()?cloud('').then(x=>x.items):listLocalSignatures();
+export const saveSignature=item=>account()?cloud('/'+encodeURIComponent(item.id),{method:'PUT',body:JSON.stringify(item)}):operation('readwrite',store=>store.put(item));
+export const deleteSignature=id=>account()?cloud('/'+encodeURIComponent(id),{method:'DELETE'}):operation('readwrite',store=>store.delete(id));
+export async function importLocalSignatures(){const items=await listLocalSignatures(),remote=await cloud(''),known=new Set(remote.items.map(x=>x.id));let imported=0;for(const item of items){if(!known.has(item.id)){await cloud('/'+encodeURIComponent(item.id),{method:'PUT',body:JSON.stringify(item)});imported++}}return imported}
