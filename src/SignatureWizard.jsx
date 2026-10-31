@@ -4,6 +4,7 @@ import {loadSignatureImage} from './signature.js';
 import {detectImage,previewImage} from './imageProcessing.js';
 import {saveSignature} from './signatureStore.js';
 import {useAccount} from './Account.jsx';
+import Brand from './Brand.jsx';
 
 const api=async(url,options={})=>{const r=await fetch(url,{...options,headers:{...options.headers,...(options.token?{Authorization:'Bearer '+options.token}:{})}});if(!r.ok){let error;try{error=(await r.json()).error}catch{}throw Error(error||'Ссылка истекла или запрос не выполнен.')}return r};
 const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
@@ -36,5 +37,5 @@ export default function SignatureWizard({onClose,onUse}){
 export function PhoneUpload({id,token}){
  const [status,setStatus]=useState('ready'),[error,setError]=useState('');const input=useRef(null);
  const submit=async file=>{if(!file)return;setError('');if(file.size>10*1024*1024)return setError('Фото должно быть не больше 10 МБ.');setStatus('sending');try{const body=new FormData();body.append('file',file);await api('/api/photo-sessions/'+id+'/photo',{method:'POST',token,body});setStatus('done')}catch(e){setError(e.message);setStatus('ready')}};
- return <main className="phone-upload"><div className="phone-brand">лист<span>.</span></div><div className="phone-card">{status==='done'?<><div className="phone-check">✓</div><h1>Фото отправлено</h1><p>Вернитесь к документу на компьютере.</p></>:<><h1>Фото подписи или печати</h1><p>Сфотографируйте подпись или выберите изображение с телефона.</p><button className="wiz-primary" disabled={status==='sending'} onClick={()=>input.current.click()}>{status==='sending'?'Отправляем…':'Выбрать или снять фото'}</button><input ref={input} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>submit(e.target.files[0])}/><small>PNG, JPG, WebP · до 10 МБ</small>{error&&<p className="wiz-error" role="alert">{error}</p>}</>}</div></main>
+ return <main className="phone-upload"><Brand className="phone-brand"/><div className="phone-card">{status==='done'?<><div className="phone-check">✓</div><h1>Фото отправлено</h1><p>Вернитесь к документу на компьютере.</p></>:<><h1>Фото подписи или печати</h1><p>Сфотографируйте подпись или выберите изображение с телефона.</p><button className="wiz-primary" disabled={status==='sending'} onClick={()=>input.current.click()}>{status==='sending'?'Отправляем…':'Выбрать или снять фото'}</button><input ref={input} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>submit(e.target.files[0])}/><small>PNG, JPG, WebP · до 10 МБ</small>{error&&<p className="wiz-error" role="alert">{error}</p>}</>}</div></main>
 }

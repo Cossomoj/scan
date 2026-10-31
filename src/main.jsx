@@ -8,6 +8,7 @@ import DocumentEditor from './DocumentEditor.jsx';
 import Landing from './Landing.jsx';
 import {createExamplePdf} from './examplePdf.js';
 import {AccountProvider} from './Account.jsx';
+import Brand from './Brand.jsx';
 import SignatureWizard,{PhoneUpload} from './SignatureWizard.jsx';
 import './style.css';
 import './editor.css';
@@ -18,7 +19,7 @@ const urlFor=(kind,id,token)=>location.origin+'/#/'+kind+'/'+id+'/'+token;
 const download=(bytes,name)=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),30000)};
 const readable=(d)=>new Date(d).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
 const Icon=({children})=><span className="icon">{children}</span>;
-function Header(){return <header className="header"><a href="/" className="brand"><span className="brand-mark">л</span><span>лист<span className="brand-dot">.</span></span></a><div className="header-right"><span className="header-caption">Работа с документами</span><a href="#how" className="header-link">Как это работает</a></div></header>}
+function Header(){return <header className="header"><Brand className="brand"/><div className="header-right"><span className="header-caption">Работа с документами</span><a href="/#how" className="header-link">Как это работает</a></div></header>}
 function SignatureDialog({onClose,onSave}){
  const c=useRef(null),picker=useRef(null),drawing=useRef(false),dirty=useRef(false),sequence=useRef(0);
  const [mode,setMode]=useState('draw'),[image,setImage]=useState(''),[error,setError]=useState(''),[loading,setLoading]=useState(false),[dragging,setDragging]=useState(false);

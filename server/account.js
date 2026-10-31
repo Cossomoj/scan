@@ -2,6 +2,7 @@ import {createHash,createHmac,randomBytes,randomInt,randomUUID,timingSafeEqual} 
 import {readFileSync,writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import nodemailer from 'nodemailer';
+import {createLoginMessage} from './loginMail.js';
 
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const normalizeEmail=value=>typeof value==='string'?value.trim().toLowerCase():'';
@@ -24,7 +25,7 @@ export function setupAccounts(app,db,{dataDir,sendMail,production=process.env.NO
  const secret=getSecret(dataDir),mac=(email,code)=>createHmac('sha256',secret).update(email+'\0'+code).digest('hex');
  const env=process.env,configured=!!(env.SMTP_HOST&&env.SMTP_PORT&&env.SMTP_USER&&env.SMTP_PASSWORD&&env.SMTP_FROM);
  const transport=configured?nodemailer.createTransport({host:env.SMTP_HOST,port:Number(env.SMTP_PORT),secure:Number(env.SMTP_PORT)===465,requireTLS:Number(env.SMTP_PORT)!==465,auth:{user:env.SMTP_USER,pass:env.SMTP_PASSWORD},connectionTimeout:10000,greetingTimeout:10000,socketTimeout:20000}):null;
- const send=sendMail||((to,code)=>transport.sendMail({from:env.SMTP_FROM,to,subject:'Код входа в Лист',text:`Ваш код входа в Лист: ${code}\n\nКод действует 10 минут. Если вы не запрашивали вход, просто проигнорируйте это письмо.\n\nЛист — zapdf.ru`,headers:{'X-Mailru-Msgtype':'transactional'}}));
+ const send=sendMail||((to,code)=>transport.sendMail(createLoginMessage(to,code,env.SMTP_FROM)));
  const enabled=!!sendMail||configured;
  const take=(key,limit,period)=>{const time=clock(),count=Number(db.prepare('SELECT COUNT(*) n FROM account_rate WHERE key=? AND created>?').get(key,time-period).n);if(count>=limit)return false;db.prepare('INSERT INTO account_rate VALUES (?,?)').run(key,time);return true};
  const session=req=>{const raw=cookieValue(req);return raw?db.prepare('SELECT u.id,u.email FROM account_sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires>?').get(sha(raw),clock()):undefined};

@@ -1,5 +1,6 @@
 import React, {useRef, useState} from 'react';
 import {AccountButton} from './Account.jsx';
+import Brand from './Brand.jsx';
 import './landing.css';
 
 function Glyph({name, ...props}) {
@@ -20,9 +21,6 @@ function Glyph({name, ...props}) {
   return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>{paths[name]}</svg>;
 }
 
-function Brand() {
-  return <a className="home-brand" href="/" aria-label="Лист — главная"><span className="home-brand-symbol"><Glyph name="file"/></span>лист<span className="home-brand-period">.</span></a>;
-}
 
 function DemoSignature() {
   return <svg viewBox="0 0 180 70" fill="none" aria-hidden="true"><path d="M7 51C23 40 40 14 48 16c8 3-10 34-16 36-7 2 17-29 25-29 11 1-15 30-8 29 8-2 18-30 23-31 6-1-5 30-9 34-3 2 12-24 20-22 8 2-4 17 1 19 6 1 12-22 20-20 7 1-5 20 1 20 6 0 14-17 18-17 5 0-2 13 4 14 7 2 13-9 22-6M17 60c36-11 95-13 150-9M101 12c9-9 21-7 22-2" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/></svg>;
@@ -56,7 +54,7 @@ function EditorDemo({onExample, busy}) {
       <div className="demo-preview">
         <div className="demo-document-bar"><span><Glyph name="file"/> Пример.pdf</span><button type="button" className="demo-reset" onClick={reset} aria-label="Сбросить пример" title="Сбросить пример"><Glyph name="reset"/></button></div>
         <div className="demo-paper" ref={page}>
-          <div className="demo-paper-head"><strong>ЛИСТ / ПРИМЕР</strong><span>01</span></div>
+          <div className="demo-paper-head"><strong>ZaPDF / ПРИМЕР</strong><span>01</span></div>
           <h3>Заявление</h3><p className="demo-paper-intro">Всё важное — в одном документе.</p>
           <div className="demo-name-row"><span>Имя и фамилия</span>{tool==='text'?<input aria-label="Текст в учебном документе" value={name} maxLength={40} onChange={e=>setName(e.target.value)} placeholder="Введите имя и фамилию"/>:<div className="demo-name-value">{name||'Имя и фамилия'}</div>}</div>
           <p className="demo-paper-note">Этот документ создан для знакомства с редактором.<br/>Здесь можно попробовать инструменты без своего файла.</p>
