@@ -82,13 +82,13 @@ const questions = [
   ['Как добавить свою подпись или печать?', 'В редакторе нажмите «Подпись / печать». Нарисуйте подпись мышью или пальцем либо загрузите изображение PNG, JPG, WebP или SVG. После добавления можно убрать светлый фон, изменить размер и наклон.'],
   ['Можно просто заполнить анкету текстом?', 'Да. Нажмите «Добавить текст», выберите место на странице и печатайте. Сохранять шаблон не нужно. Часто используемый текст можно отдельно сохранить в «Мои тексты». В скачанном PDF добавленный текст будет изображением, поэтому поиск по нему не работает. Исходный текст PDF сервис не редактирует.'],
   ['Где хранится мой документ?', 'Когда вы заполняете и подписываете PDF сами, он обрабатывается в вашем браузере. Без входа подписи и тексты сохраняются в браузере, а после входа — в аккаунте на сервере. Для приглашения других документ загружается на сервер и хранится 7 дней. Передача фото подписи с телефона тоже использует сервер.'],
-  ['Какие файлы можно открыть?', 'PDF размером до 20 МБ и до 100 страниц, без пароля. Изображения подписи загружаются отдельно, уже в редакторе. Для приглашения других пока нужны страницы без поворота и обрезки.'],
+  ['Какие файлы можно открыть?', 'PDF, JPG, PNG, Word и Excel размером до 50 МБ и до 100 страниц. Word и Excel преобразуются в PDF на сервере и удаляются после обработки. Для приглашения других нужен PDF до 20 МБ без поворота и обрезки страниц.'],
   ['Это электронная подпись?', 'Сервис добавляет в PDF изображение вашей подписи или печати. Это не квалифицированная электронная подпись (КЭП). Если получатель требует КЭП, понадобится другой способ подписания.'],
 ];
 
 export default function Landing({onChoose,onDropFile,onExample,busy,error}) {
   const [dragging,setDragging]=useState(false), [dropError,setDropError]=useState('');
-  const onDrop=e=>{e.preventDefault();setDragging(false);if(busy)return;const files=e.dataTransfer.files;if(files.length!==1){setDropError('Перетащите один PDF. Остальные страницы можно добавить в редакторе.');return}setDropError('');onDropFile(files[0])};
+  const onDrop=e=>{e.preventDefault();setDragging(false);if(busy)return;const files=e.dataTransfer.files;if(files.length!==1){setDropError('Перетащите один файл. Остальные страницы можно добавить в редакторе.');return}setDropError('');onDropFile(files[0])};
   const choose=mode=>{setDropError('');onChoose(mode)};
   return <div className="landing">
     <a className="home-skip" href="#main">Перейти к содержимому</a>
@@ -97,9 +97,9 @@ export default function Landing({onChoose,onDropFile,onExample,busy,error}) {
       <section className="home-hero" aria-labelledby="home-title">
         <div className="home-intro"><h1 id="home-title">Ваш PDF.<br/>Ваша <span>подпись.</span></h1><p>Заполняйте и подписывайте документы онлайн.<br className="desktop-break"/> Без принтера, сканера и лишних действий.</p><div className="home-assurances"><span><Glyph name="check"/> Бесплатно</span><span><Glyph name="check"/> Без регистрации</span></div></div>
         <div className={'home-upload '+(dragging?'is-dragging':'')} onDragEnter={e=>{e.preventDefault();if(e.dataTransfer.types.includes('Files'))setDragging(true)}} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect=busy?'none':'copy'}} onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragging(false)}} onDrop={onDrop} aria-busy={busy}>
-          <div className="home-upload-icon"><Glyph name="upload" width="30" height="30"/></div><h2>{busy?'Открываем документ…':dragging?'Отпустите файл здесь':'Начните с документа'}</h2><p>Перетащите PDF сюда<br/>{' '}или выберите его на устройстве</p>
-          <button className="home-button" disabled={busy} onClick={()=>choose('self')}><Glyph name="plus"/>{busy?'Подождите…':'Открыть PDF'}<Glyph name="arrow"/></button>
-          <small>До 20 МБ · до 100 страниц</small>
+          <div className="home-upload-icon"><Glyph name="upload" width="30" height="30"/></div><h2>{busy?'Открываем документ…':dragging?'Отпустите файл здесь':'Начните с документа'}</h2><p>Перетащите файл сюда<br/>{' '}или выберите его на устройстве</p>
+          <button className="home-button" disabled={busy} onClick={()=>choose('self')}><Glyph name="plus"/>{busy?'Подождите…':'Открыть документ'}<Glyph name="arrow"/></button>
+          <small>PDF, фото, Word, Excel · до 50 МБ</small>
           <div className="home-example-link"><button className="home-text-action" disabled={busy} onClick={onExample}>Нет файла? Открыть учебный PDF <Glyph name="arrow"/></button></div>
           {(error||dropError)&&<p className="home-error" role="alert">{dropError||error}</p>}
         </div>

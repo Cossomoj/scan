@@ -24,6 +24,7 @@ app.use(express.json({ limit: '4mb' }));
 setupAccounts(app,db,{dataDir});
 const upload = multer({storage:multer.memoryStorage(),limits:{fileSize:20*1024*1024, files:1, fields:3}});
 const photoUpload = multer({storage:multer.memoryStorage(),limits:{fileSize:10*1024*1024,files:1,fields:0}});
+const officeUpload = multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024,files:1,fields:0}});
 const hash = (s) => createHash('sha256').update(s).digest('hex');
 const token = () => randomBytes(32).toString('base64url');
 const bearer = (req) => /^Bearer ([A-Za-z0-9_-]{43})$/.exec(req.get('authorization') || '')?.[1] || '';
@@ -36,6 +37,24 @@ const active = (s) => !s.signed && !db.prepare('SELECT id FROM signers WHERE req
 const info = (r) => ({id:r.id,name:r.name,created:r.created,expires:r.expires,signers:db.prepare('SELECT position,name,signed FROM signers WHERE request_id=? ORDER BY position').all(r.id)});
 const validatePdf = async (bytes) => { if (!bytes || bytes.length < 5 || Buffer.from(bytes).subarray(0,5).toString() !== '%PDF-') throw new Error('Выберите корректный PDF-файл.'); const pdf=await PDFDocument.load(bytes); if(!pdf.getPageCount() || pdf.getPageCount()>100) throw new Error('Поддерживается до 100 страниц.'); if(pdf.getPages().some(p => {const c=p.getCropBox(),m=p.getMediaBox();return p.getRotation().angle % 360 !== 0 || m.x!==0 || m.y!==0 || c.x!==m.x || c.y!==m.y || c.width!==m.width || c.height!==m.height;})) throw new Error('Повернутые или обрезанные страницы пока не поддерживаются.'); return pdf; };
 app.get('/api/health', (_req,res) => res.json({ok:true}));
+const conversionBuckets = new Map();
+let conversionInProgress=false;
+app.post('/api/convert', (req,res,next)=>{const t=Date.now();let b=conversionBuckets.get(req.ip);if(!b||b.until<t)b={count:0,until:t+3600000};b.count++;conversionBuckets.set(req.ip,b);if(b.count>10)return res.status(429).json({error:'Слишком много преобразований. Попробуйте позже.'});if(conversionInProgress)return res.status(503).json({error:'Сервис преобразования занят. Попробуйте ещё раз.'});conversionInProgress=true;let released=false;const release=()=>{if(!released){released=true;conversionInProgress=false}};res.on('finish',release);res.on('close',release);next()}, officeUpload.single('file'), async (req,res)=>{
+  const file=req.file, ext=(file?.originalname||'').split('.').pop().toLowerCase(), b=file?.buffer;
+  const zip=b?.length>=4&&b[0]===0x50&&b[1]===0x4b&&b[2]===3&&b[3]===4;
+  const ole=b?.length>=8&&b.subarray(0,8).equals(Buffer.from([0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1]));
+  if(!(['docx','xlsx'].includes(ext)&&zip||['doc','xls'].includes(ext)&&ole))return res.status(400).json({error:'Выберите корректный файл Word или Excel.'});
+  if(!process.env.CONVERTER_URL)return res.status(503).json({error:'Преобразование документов временно недоступно.'});
+  try {
+    const converted=await fetch(`${process.env.CONVERTER_URL}/convert?type=${ext}`,{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:b,signal:AbortSignal.timeout(65000)});
+    if(!converted.ok){let data;try{data=await converted.json()}catch{}return res.status(converted.status===503?503:400).json({error:data?.error||'Не удалось преобразовать файл. Проверьте, что он не защищён паролем.'})}
+    const length=Number(converted.headers.get('content-length'));if(!length||length>50*1024*1024)throw Error('Invalid result size');
+    const result=Buffer.from(await converted.arrayBuffer());if(result.length!==length||result.subarray(0,5).toString()!=='%PDF-')throw Error('Invalid PDF');
+    const pdf=await PDFDocument.load(result);if(!pdf.getPageCount()||pdf.getPageCount()>100)return res.status(400).json({error:'Поддерживается до 100 страниц.'});
+    res.type('application/pdf').send(result);
+  }catch{return res.status(503).json({error:'Не удалось преобразовать файл. Проверьте документ и попробуйте ещё раз.'})}
+});
+setInterval(()=>{const t=Date.now();for(const [ip,b] of conversionBuckets)if(b.until<t)conversionBuckets.delete(ip)},60000).unref();
 // Temporary hand-off is held only in memory and consumed once by the desktop.
 const photoSessions=new Map();
 const purgePhotos=()=>{for(const [id,s] of photoSessions)if(s.expires<=now())photoSessions.delete(id)};
@@ -67,6 +86,6 @@ app.post('/api/requests/:id/sign', async (req,res,next) => {try {
 app.use('/api',(_req,res)=>res.status(404).json({error:'Не найдено.'}));
 app.use(express.static(resolve('dist'),{index:'index.html',maxAge:'1h'}));
 app.get('/{*path}',(_req,res)=>res.sendFile(resolve('dist/index.html')));
-app.use((err,req,res,_next)=>{console.error(err.message); if(err instanceof multer.MulterError) return res.status(400).json({error:'Файл слишком большой (максимум 20 МБ).'}); res.status(400).json({error:err.message?.includes('PDF') ? err.message : 'Не удалось обработать документ. Проверьте файл и попробуйте снова.'});});
+app.use((err,req,res,_next)=>{console.error(err.message); if(err instanceof multer.MulterError) return res.status(400).json({error:`Файл слишком большой (максимум ${req.path==='/api/convert'?50:20} МБ).`}); res.status(400).json({error:err.message?.includes('PDF') ? err.message : 'Не удалось обработать документ. Проверьте файл и попробуйте снова.'});});
 const cleanup=()=>{const result=db.prepare('DELETE FROM requests WHERE expires<=?').run(now());if(result.changes)db.exec('PRAGMA wal_checkpoint(TRUNCATE)');}; cleanup(); setInterval(cleanup,60*60*1000).unref();
 app.listen(process.env.PORT || 3000,'0.0.0.0',()=>console.log('Listening on port '+(process.env.PORT||3000)));

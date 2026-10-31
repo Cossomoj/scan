@@ -1,7 +1,7 @@
 zapdf.ru, www.zapdf.ru, gamelife.shop, www.gamelife.shop {
   encode zstd gzip
   request_body {
-    max_size 21MB
+    max_size 54MB
   }
   reverse_proxy app:3000
 }
