@@ -5,6 +5,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY index.html vite.config.js ./
 COPY src ./src
+COPY public ./public
 RUN pnpm build
 
 FROM node:24-alpine
@@ -18,4 +19,3 @@ COPY server ./server
 USER node
 EXPOSE 3000
 CMD ["node","server/index.js"]
-

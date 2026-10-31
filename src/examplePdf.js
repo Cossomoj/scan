@@ -2,7 +2,8 @@ import {PDFDocument} from 'pdf-lib';
 
 // Synthetic, public example. No customer data or stored signatures are used.
 export async function createExamplePdf() {
-  await document.fonts.load('500 24px Manrope');
+  // A missing or blocked font must never prevent opening the example.
+  try { await document.fonts.load('500 24px Manrope'); } catch {}
   const canvas=document.createElement('canvas');canvas.width=1190;canvas.height=1684;
   const ctx=canvas.getContext('2d');ctx.fillStyle='#ffffff';ctx.fillRect(0,0,1190,1684);
   const text=(value,x,y,size=24,color='#242332',weight=500)=>{ctx.font=`${weight} ${size}px Manrope, Arial, sans-serif`;ctx.fillStyle=color;ctx.fillText(value,x,y)};
