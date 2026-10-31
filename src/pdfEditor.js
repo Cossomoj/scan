@@ -1,5 +1,6 @@
 import {PDFDocument, degrees} from 'pdf-lib';
 import * as pdfjs from 'pdfjs-dist';
+import {imagePlacement} from './placement.js';
 
 export async function addPdfPages(original,extra){
   const document=await PDFDocument.load(original),incoming=await PDFDocument.load(extra);
@@ -29,6 +30,7 @@ export async function exportDocument(original,items){
    const x=item.x*view.width,y=item.y*view.height,w=item.width*view.width,h=item.height*view.height;
    const origin=view.convertToPdfPoint(x,y+h),right=view.convertToPdfPoint(x+w,y+h),top=view.convertToPdfPoint(x,y);
    const physicalWidth=Math.hypot(right[0]-origin[0],right[1]-origin[1]),physicalHeight=Math.hypot(top[0]-origin[0],top[1]-origin[1]);
-   const png=await pdf.embedPng(elementPng(item));page.drawImage(png,{x:origin[0],y:origin[1],width:physicalWidth,height:physicalHeight,rotate:degrees(view.rotation)});
+   const center=view.convertToPdfPoint(x+w/2,y+h/2),position=imagePlacement(center,physicalWidth,physicalHeight,view.rotation,item.angle||0);
+   const png=await pdf.embedPng(elementPng(item));page.drawImage(png,{x:position.x,y:position.y,width:physicalWidth,height:physicalHeight,rotate:degrees(position.rotation)});
  }return await pdf.save()}finally{await viewer.destroy()}
 }
