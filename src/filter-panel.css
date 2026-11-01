@@ -1,0 +1,20 @@
+.editor-panel .filter-crop{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;margin:0 0 12px}
+.filter-crop svg,.filter-original svg{width:17px;height:17px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.editor-panel .filter-note{margin:16px 0 0;color:#53657b;font-size:11px;line-height:1.55}
+.editor-panel .editor-filter-list{gap:9px;margin:0}
+.editor-panel .editor-filter-list button{border:1px solid #dce5f1;border-radius:10px;background:#fff;color:#182028;transition:border-color 150ms,background-color 150ms}
+.editor-panel .editor-filter-list button:first-child{min-height:42px;padding:10px 12px;font-size:12px;font-weight:650}
+.editor-panel .editor-filter-list button:not(:first-child){min-height:100px;padding:8px;gap:7px;font-size:11px;font-weight:650}
+.editor-panel .editor-filter-list button[aria-pressed=true]{border-color:#0b57d0;background:#eef5ff;color:#0b57d0;box-shadow:0 0 0 1px #0b57d0}
+.editor-panel .editor-filter-list button:hover:not([aria-pressed=true]){background:#f7faff;border-color:#9cbcf3}
+.editor-panel .editor-filter-preview{width:100%;height:auto;min-height:48px;border-radius:6px;background:#f3f7fc}
+.editor-panel h3.filter-strength-title{margin:14px 0 8px;font-size:12px}
+.filter-strength{display:flex;gap:3px;padding:3px;border:1px solid #dce5f1;border-radius:10px}
+.filter-strength button{flex:1;min-height:36px;padding:7px 4px;border:0;border-radius:7px;background:transparent;color:#53657b;font-size:11px!important;font-weight:650!important}
+.filter-strength button[aria-pressed=true]{background:#eaf2ff;color:#0b57d0}
+.filter-strength button:hover:not([aria-pressed=true]){background:#f3f7fc}
+.editor-panel .filter-original-note{margin:12px 0 0;color:#53657b;font-size:11px;line-height:1.5}
+.editor-panel-actions .filter-original{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;margin:0}
+.editor-panel-actions .filter-original[aria-pressed=true]{background:#eaf2ff;color:#0b57d0}
+@media(max-width:650px){.editor-panel .editor-filter-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.editor-panel .editor-filter-list button:first-child{grid-column:1/-1}.editor-panel .editor-filter-list button:not(:first-child){min-width:0;min-height:90px;font-size:11px;padding:6px;gap:5px}.editor-panel .editor-filter-preview{min-height:30px}.editor-panel h3.filter-strength-title{margin-top:14px}.editor-panel-actions .filter-original{flex:1;min-width:0}}
+@media(prefers-reduced-motion:reduce){.editor-panel .editor-filter-list button{transition:none}}
