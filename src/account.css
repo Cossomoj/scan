@@ -24,7 +24,6 @@
 .account-footnote svg{width:20px;height:20px;flex:none;stroke:#2d2d2d;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .account-form .account-alert{margin:12px 0 0;font-size:12px}
 .account-dialog>.account-alert{margin:24px 0 0;font-size:13px}
-.account-logout{display:block;margin:24px auto 0}
 .account-import{text-align:left}
 .account-notice{text-align:center}
 @media(hover:hover) and (pointer:fine){.account-primary:hover:not(:disabled){background:#2d2d2d}.account-close:hover{background:#f4f4f4}.account-trigger:hover{background:#f4f4f4}}
