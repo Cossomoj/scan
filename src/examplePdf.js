@@ -3,12 +3,12 @@ import {PDFDocument} from 'pdf-lib';
 // Synthetic, public example. No customer data or stored signatures are used.
 export async function createExamplePdf() {
   // A missing or blocked font must never prevent opening the example.
-  try { await document.fonts.load('500 24px Manrope'); } catch {}
+  try { await document.fonts.load('500 24px "Inter Variable"'); } catch {}
   const canvas=document.createElement('canvas');canvas.width=1190;canvas.height=1684;
   const ctx=canvas.getContext('2d');ctx.fillStyle='#ffffff';ctx.fillRect(0,0,1190,1684);
-  const text=(value,x,y,size=24,color='#242332',weight=500)=>{ctx.font=`${weight} ${size}px Manrope, Arial, sans-serif`;ctx.fillStyle=color;ctx.fillText(value,x,y)};
+  const text=(value,x,y,size=24,color='#182028',weight=500)=>{ctx.font=`${weight} ${size}px "Inter Variable", Arial, sans-serif`;ctx.fillStyle=color;ctx.fillText(value,x,y)};
   const line=y=>{ctx.strokeStyle='#c9c7d0';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(100,y);ctx.lineTo(1090,y);ctx.stroke()};
-  text('ZaPDF / УЧЕБНЫЙ ДОКУМЕНТ',100,110,20,'#625c70',700);
+  text('КОНТОРКА / УЧЕБНЫЙ ДОКУМЕНТ',100,110,20,'#0B57D0',700);
   text('Попробуйте редактор',100,235,52,'#242332',700);
   text('Этот пример не является заявлением или договором.',100,300);
   text('Добавьте текст, подпись и галочку, затем скачайте PDF.',100,345);

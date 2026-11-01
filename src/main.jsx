@@ -1,4 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
+import '@fontsource-variable/inter';
 import {createRoot} from 'react-dom/client';
 import * as pdfjs from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -15,6 +16,7 @@ import {prepareDocument} from './prepareDocument.js';
 import Admin from './Admin.jsx';
 import './style.css';
 import './editor.css';
+import './kontorka-theme.css';
 pdfjs.GlobalWorkerOptions.workerSrc=workerUrl;
 
 const api=async(url,options={})=>{const r=await fetch(url,{...options,headers:{...options.headers,...(options.token?{Authorization:'Bearer '+options.token}:{})}}); if(!r.ok){let m; try{m=(await r.json()).error}catch{} throw new Error(m||'Ссылка недействительна или срок её действия истёк.')} return r;};

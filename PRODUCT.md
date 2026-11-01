@@ -1,4 +1,4 @@
-# ZaPDF
+# Конторка
 
 <!-- impeccable:product-schema 1 -->
 
@@ -22,7 +22,7 @@ Invitations create separate links for up to ten sequential signers and upload th
 
 ## Brand Commitments
 
-Name: ZaPDF. Clear everyday Russian. Use a black-and-white interface while retaining the original colours in user documents and signatures. Editor and invitation behavior must continue working.
+Name: Конторка. Clear everyday Russian. Use the supplied brand identity: blue #0B57D0, graphite #182028, light blue #EAF2FF, white, and Inter. The public domain remains zapdf.ru. Retain the original colours in user documents and signatures. Editor and invitation behavior must continue working.
 
 ## Evidence on Hand
 

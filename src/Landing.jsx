@@ -54,7 +54,7 @@ function EditorDemo({onExample, busy}) {
       <div className="demo-preview">
         <div className="demo-document-bar"><span><Glyph name="file"/> Пример.pdf</span><button type="button" className="demo-reset" onClick={reset} aria-label="Сбросить пример" title="Сбросить пример"><Glyph name="reset"/></button></div>
         <div className="demo-paper" ref={page}>
-          <div className="demo-paper-head"><strong>ZaPDF / ПРИМЕР</strong><span>01</span></div>
+          <div className="demo-paper-head"><strong>КОНТОРКА / ПРИМЕР</strong><span>01</span></div>
           <h3>Заявление</h3><p className="demo-paper-intro">Всё важное — в одном документе.</p>
           <div className="demo-name-row"><span>Имя и фамилия</span>{tool==='text'?<input aria-label="Текст в учебном документе" value={name} maxLength={40} onChange={e=>setName(e.target.value)} placeholder="Введите имя и фамилию"/>:<div className="demo-name-value">{name||'Имя и фамилия'}</div>}</div>
           <p className="demo-paper-note">Этот документ создан для знакомства с редактором.<br/>Здесь можно попробовать инструменты без своего файла.</p>
