@@ -17,6 +17,7 @@ import Admin from './Admin.jsx';
 import './style.css';
 import './editor.css';
 import './kontorka-theme.css';
+import './editor-layout.css';
 pdfjs.GlobalWorkerOptions.workerSrc=workerUrl;
 
 const api=async(url,options={})=>{const r=await fetch(url,{...options,headers:{...options.headers,...(options.token?{Authorization:'Bearer '+options.token}:{})}}); if(!r.ok){let m; try{m=(await r.json()).error}catch{} throw new Error(m||'Ссылка недействительна или срок её действия истёк.')} return r;};
