@@ -40,3 +40,12 @@ test('zero strength preserves pixels and broad grey marks are not treated as rul
  const unchanged=data.slice();removePaper({data,width,height},0);assert.deepEqual(data,unchanged);
  removePaper({data,width,height},35);assert.equal(data[(15*width+25)*4+3],255);
 });
+
+test('background removal keeps coloured strokes on a transparent canvas',()=>{
+ const width=60,height=30,data=new Uint8ClampedArray(width*height*4);
+ for(let x=10;x<50;x++){data.set([179,41,41,255],(10*width+x)*4);data.set([23,74,165,255],(20*width+x)*4)}
+ removePaper({data,width,height},35);
+ assert.equal(data[(10*width+20)*4+3],255,'red stroke');
+ assert.equal(data[(20*width+20)*4+3],255,'blue stroke');
+ assert.equal(data[(5*width+5)*4+3],0,'transparent background');
+});

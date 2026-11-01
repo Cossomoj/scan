@@ -16,7 +16,9 @@ export function removePaper(imageData,strength){
   // Estimate the colour of the paper rather than assuming it is pure white.
   const hist=[new Uint32Array(256),new Uint32Array(256),new Uint32Array(256)];let count=0;
   for(let i=0;i<d.length;i+=4)if(d[i+3]>128){for(let c=0;c<3;c++)hist[c][d[i+c]]++;count++}
-  const paper=hist.map(h=>{let total=0;for(let v=0;v<256;v++){total+=h[v];if(total>=count*.9)return v}return 255});
+  // A mostly transparent image has no opaque paper to sample: sampling only
+  // its coloured strokes would mistake the ink itself for the background.
+  const paper=count<d.length/8?[255,255,255]:hist.map(h=>{let total=0;for(let v=0;v<256;v++){total+=h[v];if(total>=count*.9)return v}return 255});
   const threshold=8+amount*1.2;
   // Thin, long grey printed rules are background, even if darker than the paper.
   // Restrict this to narrow horizontal bands so that broad grey ink is retained.
