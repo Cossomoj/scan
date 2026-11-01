@@ -1,0 +1,24 @@
+.signature-library-heading{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:22px 0 12px}
+.editor-panel .signature-library-heading h3{margin:0;color:#53657b;font-size:11px;font-weight:750;letter-spacing:.05em;text-transform:uppercase}
+.signature-library-heading>span{color:#53657b;font-size:11px;font-weight:650;white-space:nowrap}
+.signature-library-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-items:start}
+.signature-card{position:relative;min-width:0;border:1px solid #d6e2f1;border-radius:13px;background:#f2f7ff;overflow:hidden;transition:border-color 150ms,background-color 150ms}
+.signature-card:hover{background:#eaf2ff;border-color:#9cbcf3}
+.signature-card-use{display:flex;flex-direction:column;gap:7px;width:100%;border:0;background:transparent;padding:8px;color:#182028;text-align:left}
+.signature-card-preview{display:grid;place-items:center;width:100%;aspect-ratio:1.18;background:#fff;border-radius:8px;overflow:hidden}
+.signature-card-preview img{width:86%;height:78%;object-fit:contain}
+.signature-card-use strong{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:650}
+.signature-card-delete{position:absolute;top:10px;right:10px;display:grid;place-items:center;width:30px;height:30px;border:0;border-radius:7px;background:#fff;color:#53657b;font-size:19px!important;line-height:1}
+.signature-card-delete:hover{background:#fff1f1;color:#a73535}
+.signature-card-add{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:132px;aspect-ratio:.88;border:1px dashed #b9cbe3;border-radius:13px;background:#fff;color:#0b57d0}
+.signature-card-add span{font-size:27px;line-height:1;font-weight:400}
+.signature-card-add strong{font-size:12px}
+.signature-card-add:hover{background:#f3f7ff;border-color:#0b57d0}
+.editor-panel .signature-library-empty{margin:12px 0 0;color:#53657b;font-size:12px;line-height:1.5}
+.signature-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
+.signature-actions button{display:flex;align-items:center;justify-content:center;gap:7px;min-width:0;padding:10px 6px;font-size:12px!important}
+.signature-actions .signature-upload-action{grid-column:1/-1}
+.signature-actions svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+@media(max-width:650px){.signature-library-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.signature-card-add{min-height:90px}.signature-card-delete{width:28px;height:28px}.signature-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.signature-actions .signature-upload-action{grid-column:auto}.signature-actions button{font-size:11px!important;padding:8px 4px}}
+@media(max-width:360px){.signature-library-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.signature-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.signature-actions .signature-upload-action{grid-column:1/-1}}
+@media(prefers-reduced-motion:reduce){.signature-card{transition:none}}
