@@ -27,14 +27,6 @@ test('private links enforce signing order and produce a valid signed PDF',async(
    assert.equal((await sign(request.signers[1].token)).status,200);
    response=await fetch(base+'/owner',{headers:auth(request.owner)});const status=await response.json();assert.ok(status.signers.every(s=>s.signed));
    response=await fetch(base+'/owner/pdf',{headers:auth(request.owner)});const signed=await PDFDocument.load(await response.arrayBuffer());assert.equal(signed.getPageCount(),1);
-   // The phone and desktop tokens have different permissions and a photo can be consumed only once.
-   response=await fetch(root+'/api/photo-sessions',{method:'POST'});assert.equal(response.status,201);const transfer=await response.json();
-   const photoUrl=root+'/api/photo-sessions/'+transfer.id+'/photo';
-   assert.equal((await fetch(photoUrl,{headers:auth(transfer.phone)})).status,404);
-   assert.equal((await fetch(photoUrl,{headers:auth(transfer.desktop)})).status,204);
-   const imageBytes=Buffer.from(png.split(',')[1],'base64'),upload=new FormData();upload.append('file',new Blob([imageBytes],{type:'image/png'}),'test.png');
-   assert.equal((await fetch(photoUrl,{method:'POST',headers:auth(transfer.phone),body:upload})).status,200);
-   response=await fetch(photoUrl,{headers:auth(transfer.desktop)});assert.equal(response.status,200);assert.deepEqual(Buffer.from(await response.arrayBuffer()),imageBytes);
-   assert.equal((await fetch(photoUrl,{headers:auth(transfer.desktop)})).status,404);
+   assert.equal((await fetch(root+'/api/photo-sessions',{method:'POST'})).status,404);
  } finally {child.kill();await new Promise(r=>child.once('exit',r));await rm(dir,{recursive:true,force:true});}
 });

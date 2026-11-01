@@ -26,7 +26,6 @@ app.use(express.json({ limit: '4mb' }));
 setupAccounts(app,db,{dataDir});
 setupAdmin(app,db);
 const upload = multer({storage:multer.memoryStorage(),limits:{fileSize:20*1024*1024, files:1, fields:3}});
-const photoUpload = multer({storage:multer.memoryStorage(),limits:{fileSize:10*1024*1024,files:1,fields:0}});
 const officeUpload = multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024,files:1,fields:0}});
 const hash = (s) => createHash('sha256').update(s).digest('hex');
 const token = () => randomBytes(32).toString('base64url');
@@ -58,14 +57,6 @@ app.post('/api/convert', (req,res,next)=>{const t=Date.now();let b=conversionBuc
   }catch{return res.status(503).json({error:'Не удалось преобразовать файл. Проверьте документ и попробуйте ещё раз.'})}
 });
 setInterval(()=>{const t=Date.now();for(const [ip,b] of conversionBuckets)if(b.until<t)conversionBuckets.delete(ip)},60000).unref();
-// Temporary hand-off is held only in memory and consumed once by the desktop.
-const photoSessions=new Map();
-const purgePhotos=()=>{for(const [id,s] of photoSessions)if(s.expires<=now())photoSessions.delete(id)};
-app.post('/api/photo-sessions',(_req,res)=>{purgePhotos();if(photoSessions.size>=12)return res.status(503).json({error:'Сервис передачи занят. Попробуйте позже.'});const id=randomUUID(),desktop=token(),phone=token(),expires=now()+10*60000;photoSessions.set(id,{desktop:hash(desktop),phone:hash(phone),expires,photo:null});res.status(201).json({id,desktop,phone,expires});});
-app.post('/api/photo-sessions/:id/photo',photoUpload.single('file'),(req,res)=>{purgePhotos();const s=photoSessions.get(req.params.id);if(!s||hash(bearer(req))!==s.phone)return res.sendStatus(404);if(s.photo)return res.status(409).json({error:'Фотография уже загружена.'});const b=req.file?.buffer;let type='',name='';if(b?.length>=8&&b.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))){type='image/png';name='photo.png'}else if(b?.length>=3&&b[0]===255&&b[1]===216&&b[2]===255){type='image/jpeg';name='photo.jpg'}else if(b?.length>=12&&b.subarray(0,4).toString()==='RIFF'&&b.subarray(8,12).toString()==='WEBP'){type='image/webp';name='photo.webp'}else return res.status(400).json({error:'Выберите фото PNG, JPG или WebP.'});s.photo={bytes:b,type,name};res.json({ok:true});});
-app.get('/api/photo-sessions/:id/photo',(req,res)=>{purgePhotos();const s=photoSessions.get(req.params.id);if(!s||hash(bearer(req))!==s.desktop)return res.sendStatus(404);if(!s.photo)return res.sendStatus(204);res.set({'Content-Type':s.photo.type,'X-Photo-Name':s.photo.name});const data=s.photo.bytes;photoSessions.delete(req.params.id);res.send(data)});
-app.delete('/api/photo-sessions/:id',(req,res)=>{const s=photoSessions.get(req.params.id);if(!s||hash(bearer(req))!==s.desktop)return res.sendStatus(404);photoSessions.delete(req.params.id);res.sendStatus(204)});
-setInterval(purgePhotos,60000).unref();
 app.post('/api/requests', upload.single('file'), async (req,res,next) => { try {
   const names=JSON.parse(req.body.signers || '[]'); if(!Array.isArray(names)||names.length<1||names.length>10) return res.status(400).json({error:'Укажите от 1 до 10 подписантов.'});
   const signers=names.map(x=>cleanName(x,80)); if(signers.some(x=>!x)) return res.status(400).json({error:'Укажите имя каждого подписанта.'});
