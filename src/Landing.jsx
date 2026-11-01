@@ -2,6 +2,7 @@ import React, {useRef, useState} from 'react';
 import {AccountButton} from './Account.jsx';
 import Brand from './Brand.jsx';
 import './landing.css';
+import './footer.css';
 
 function Glyph({name, ...props}) {
   const paths = {
@@ -107,9 +108,17 @@ export default function Landing({onChoose,onDropFile,onExample,busy,error}) {
       <EditorDemo onExample={onExample} busy={busy}/>
       <section className="home-how" id="how" aria-labelledby="how-title"><div className="home-section-intro"><h2 id="how-title">Три шага.<br/>И документ готов.</h2><p>Заявление, анкета или договор —<br/>всё делается в одном окне.</p></div><ol className="home-steps"><li><span>1</span><div><h3>Откройте PDF</h3><p>Выберите файл на компьютере или телефоне. Страницы появятся в редакторе.</p></div></li><li><span>2</span><div><h3>Добавьте нужное</h3><p>Подпись, печать, текст или галочку. Перемещайте элементы и меняйте их размер.</p></div></li><li><span>3</span><div><h3>Скачайте результат</h3><p>Нажмите «Скачать PDF». Документ с вашими изменениями сохранится на устройство.</p></div></li></ol></section>
       <section className="home-more" aria-label="Дополнительные возможности"><div className="home-local"><Glyph name="shield" width="34" height="34"/><h2>Ваш файл.<br/>Ваш браузер.</h2><p>При самостоятельном заполнении и подписании PDF обрабатывается на вашем устройстве.</p><p className="home-fine-print">Скачайте готовый документ перед закрытием страницы.</p></div><div className="home-invite"><Glyph name="link" width="34" height="34"/><h2>Нужна подпись<br/>другого человека?</h2><p>Укажите участников и передайте каждому личную ссылку. Они смогут подписать документ по очереди.</p><button className="home-text-action" disabled={busy} onClick={()=>choose('others')}>Пригласить подписантов <Glyph name="arrow"/></button><small>Для этого PDF загружается на сервер на 7 дней.</small></div></section>
-      <section className="home-faq" id="questions" aria-labelledby="questions-title"><h2 id="questions-title">Всё, что хочется уточнить</h2><div>{questions.map(([q,a])=><details key={q}><summary>{q}<Glyph name="plus"/></summary><p>{a}</p></details>)}</div></section>
+      <section className="home-faq" id="questions" aria-labelledby="questions-title"><h2 id="questions-title">Всё, что хочется уточнить</h2><div>{questions.map(([q,a],i)=><details key={q} id={'question-'+i}><summary>{q}<Glyph name="plus"/></summary><p>{a}</p></details>)}</div></section>
       <section className="home-bottom"><h2>Осталось только подписать.</h2><button className="home-button" disabled={busy} onClick={()=>choose('self')}>Открыть мой PDF <Glyph name="arrow"/></button></section>
     </main>
-    <footer className="home-footer"><div><Brand/><p>Документы с подписью. Всё просто.</p></div><small>Визуальная подпись.<br/>Не заменяет квалифицированную электронную подпись.</small><a href="#questions">Помощь с документом <Glyph name="arrow"/></a></footer>
+    <footer className="home-footer">
+      <div className="footer-grid">
+        <div className="footer-about"><Brand/><p>Подпись, печать и заполнение документов прямо в браузере.</p><a href="#questions">Помощь с документом <Glyph name="arrow"/></a></div>
+        <nav className="footer-column" aria-label="Возможности"><h2>Возможности</h2><a href="#how">Все возможности</a>{['Подписать PDF','Подписать Word','Подписать Excel','Поставить печать','Нарисовать подпись'].map(label=><button type="button" key={label} disabled={busy} onClick={()=>choose('self')}>{label}</button>)}</nav>
+        <nav className="footer-column" aria-label="Инструменты"><h2>Инструменты</h2>{['Эффект сканера','Подпись без фона','Вырезать подпись со страницы','Добавить текст'].map(label=><button type="button" key={label} disabled={busy} onClick={()=>choose('self')}>{label}</button>)}</nav>
+        <nav className="footer-column" aria-label="О документах"><h2>О документах</h2>{[['Форматы файлов',4],['Хранение документов',3],['Электронная подпись',5],['Частые вопросы',null]].map(([label,index])=><a key={label} href={index===null?'#questions':'#question-'+index} onClick={()=>{if(index!==null){const item=document.getElementById('question-'+index);if(item)item.open=true}}}>{label}</a>)}</nav>
+      </div>
+      <div className="footer-bottom"><span>Визуальная подпись не заменяет квалифицированную электронную подпись.</span><span>© {new Date().getFullYear()} Конторка</span></div>
+    </footer>
   </div>;
 }
