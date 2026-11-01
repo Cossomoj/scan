@@ -1,0 +1,24 @@
+.editor-panel .cover-subtitle{margin:-5px 0 16px;color:#53657b;font-size:12px}
+.cover-colors{min-width:0;margin:20px 0 0;padding:0;border:0}
+.cover-colors legend{padding:0;margin-bottom:12px;color:#182028;font-size:12px;font-weight:700}
+.cover-swatches{display:flex;align-items:center;gap:10px}
+.cover-swatch,.cover-custom{position:relative;width:40px;height:40px;border:1px solid #cbd8e8;border-radius:10px;flex:none}
+.cover-swatch[aria-pressed=true],.cover-custom.is-active{outline:2px solid #0b57d0;outline-offset:2px}
+.cover-swatch:hover,.cover-custom:hover{border-color:#0b57d0}
+.cover-custom{display:grid;place-items:center;overflow:hidden;background:conic-gradient(#f07575,#e4b759,#7fce9c,#70b9e9,#b795e1,#f07575);cursor:pointer}
+.cover-custom span{display:grid;place-items:center;width:21px;height:21px;border-radius:50%;background:#fff;color:#0b57d0;font-size:18px;line-height:1}
+.cover-custom input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.cover-custom:has(input:focus-visible){outline:3px solid #84aff3;outline-offset:2px}
+.editor-panel .cover-note{margin-top:25px;padding-top:16px;border-top:1px solid #e2e8f0;color:#53657b;font-size:11px;line-height:1.55}
+.cover-selected{margin-top:18px;padding:12px;border-radius:9px;background:#f3f7fc}
+.editor-panel .cover-selected p{margin:0}
+.cover-selected .editor-delete{padding-top:8px}
+.cover-handle{position:absolute;z-index:4;width:16px;height:16px;padding:0;border:2px solid #0b57d0;border-radius:50%;background:#fff;touch-action:none}
+.cover-handle-nw{top:-8px;left:-8px;cursor:nwse-resize}
+.cover-handle-ne{top:-8px;right:-8px;cursor:nesw-resize}
+.cover-handle-sw{bottom:-8px;left:-8px;cursor:nesw-resize}
+.cover-handle-se{bottom:-8px;right:-8px;cursor:nwse-resize}
+.cover-remove{position:absolute;z-index:5;top:-38px;right:-17px;display:grid;place-items:center;width:27px;height:27px;padding:5px;border:2px solid #fff;border-radius:50%;background:#b83b3b;color:#fff;box-shadow:0 2px 8px #18202833}
+.cover-remove svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.cover-remove:hover{background:#982a2a}
+@media(max-width:650px){.cover-handle{width:20px;height:20px}.cover-handle-nw{top:-10px;left:-10px}.cover-handle-ne{top:-10px;right:-10px}.cover-handle-sw{bottom:-10px;left:-10px}.cover-handle-se{bottom:-10px;right:-10px}.cover-remove{width:32px;height:32px;top:-42px}}
