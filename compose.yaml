@@ -9,6 +9,7 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
       CONVERTER_URL: http://converter:3001
+      ADMIN_CREDENTIAL: ${ADMIN_CREDENTIAL:-}
     volumes:
       - sign_data:/app/data
     networks:

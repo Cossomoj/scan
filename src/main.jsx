@@ -12,13 +12,14 @@ import Brand from './Brand.jsx';
 import SignatureWizard,{PhoneUpload} from './SignatureWizard.jsx';
 import UploadDialog from './UploadDialog.jsx';
 import {prepareDocument} from './prepareDocument.js';
+import Admin from './Admin.jsx';
 import './style.css';
 import './editor.css';
 pdfjs.GlobalWorkerOptions.workerSrc=workerUrl;
 
 const api=async(url,options={})=>{const r=await fetch(url,{...options,headers:{...options.headers,...(options.token?{Authorization:'Bearer '+options.token}:{})}}); if(!r.ok){let m; try{m=(await r.json()).error}catch{} throw new Error(m||'Ссылка недействительна или срок её действия истёк.')} return r;};
 const urlFor=(kind,id,token)=>location.origin+'/#/'+kind+'/'+id+'/'+token;
-const download=(bytes,name)=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),30000)};
+const download=(bytes,name)=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));a.download=name;a.click();try{navigator.sendBeacon?.('/api/metrics/download')}catch{}setTimeout(()=>URL.revokeObjectURL(a.href),30000)};
 const readable=(d)=>new Date(d).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
 const Icon=({children})=><span className="icon">{children}</span>;
 function Header(){return <header className="header"><Brand className="brand"/><div className="header-right"><span className="header-caption">Работа с документами</span><a href="/#how" className="header-link">Как это работает</a></div></header>}
@@ -67,4 +68,4 @@ return <>{stage!=='home'&&!(stage==='editor'&&mode==='self')&&stage!=='phone'&&<
 {(stage==='signed'||stage==='downloaded')&&<main className="flow success"><div className="success-icon">✓</div><span className="eyebrow">ГОТОВО</span><h1>{stage==='signed'?'Документ подписан.':'Подпись добавлена.'}</h1><p className="muted">{stage==='signed'?'Ваша подпись сохранена. По личной ссылке можно скачать актуальную версию документа, пока ссылка действует.':'Подписанный PDF скачивается на ваше устройство.'}</p>{stage==='signed'&&<button className="primary" disabled={busy} onClick={getSignerPdf}>Скачать PDF ↗</button>}{error&&stage==='signed'&&<p className="error">{error}</p>} <button className="secondary" onClick={home}>На главную ↗</button></main>}
 </>}
 function LinkRow({title,value,copy}){return <div className="link-row"><strong>{title}</strong><div><input readOnly value={value} onFocus={e=>e.target.select()}/><button onClick={()=>copy(value)}>Копировать</button></div></div>}
-createRoot(document.getElementById('root')).render(<AccountProvider><App/></AccountProvider>);
+createRoot(document.getElementById('root')).render(location.pathname==='/admin'?<Admin/>:<AccountProvider><App/></AccountProvider>);
