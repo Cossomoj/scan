@@ -1,7 +1,7 @@
 import {PDFDocument, degrees} from 'pdf-lib';
 import * as pdfjs from 'pdfjs-dist';
 import {imagePlacement} from './placement.js';
-import {scanFilter,cropBoxFromViewport} from './editorTransforms.js';
+import {scanFilter,cropBoxFromViewport,warpImageData} from './editorTransforms.js';
 
 export async function addPdfPages(original,extra){
   const document=await PDFDocument.load(original),incoming=await PDFDocument.load(extra);
@@ -30,12 +30,12 @@ export async function cropPdfPage(original,index,region){
  const pdf=await PDFDocument.load(original),viewer=await pdfjs.getDocument({data:new Uint8Array(original)}).promise;
  try{const page=pdf.getPages()[index];if(!page)throw Error('Страница не найдена.');const v=(await viewer.getPage(index+1)).getViewport({scale:1}),box=cropBoxFromViewport(v,region);if(box.width<10||box.height<10)throw Error('Выберите область побольше.');page.setCropBox(box.x,box.y,box.width,box.height);return await pdf.save()}finally{await viewer.destroy()}
 }
-async function flattenFiltered(original,filters){
- if(!Object.values(filters).some(f=>f?.name&&f.name!=='none'))return original;
+async function flattenFiltered(original,filters,coverPages){
+ if(!coverPages.size&&!Object.values(filters).some(f=>f?.name&&f.name!=='none'))return original;
  const source=await PDFDocument.load(original),out=await PDFDocument.create(),viewer=await pdfjs.getDocument({data:new Uint8Array(original)}).promise;
- try{for(let i=0;i<source.getPageCount();i++){const filter=filters[i];if(!filter||filter.name==='none'){const [p]=await out.copyPages(source,[i]);out.addPage(p);continue}
+ try{for(let i=0;i<source.getPageCount();i++){const filter=filters[i];if(!coverPages.has(i)&&(!filter||filter.name==='none')){const [p]=await out.copyPages(source,[i]);out.addPage(p);continue}
   const page=await viewer.getPage(i+1),base=page.getViewport({scale:1}),scale=Math.min(2,2400/Math.max(base.width,base.height)),view=page.getViewport({scale});const canvas=document.createElement('canvas');canvas.width=Math.ceil(view.width);canvas.height=Math.ceil(view.height);const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);await page.render({canvasContext:ctx,viewport:view}).promise;
-  const result=document.createElement('canvas');result.width=canvas.width;result.height=canvas.height;const filtered=result.getContext('2d');filtered.filter=scanFilter(filter.name,filter.strength);filtered.drawImage(canvas,0,0);const image=await out.embedPng(result.toDataURL('image/png'));const target=out.addPage([base.width,base.height]);target.drawImage(image,{x:0,y:0,width:base.width,height:base.height});canvas.width=canvas.height=result.width=result.height=1;
+  const result=document.createElement('canvas');result.width=canvas.width;result.height=canvas.height;const filtered=result.getContext('2d');filtered.filter=scanFilter(filter?.name,filter?.strength);filtered.drawImage(canvas,0,0);const image=await out.embedPng(result.toDataURL('image/png'));const target=out.addPage([base.width,base.height]);target.drawImage(image,{x:0,y:0,width:base.width,height:base.height});canvas.width=canvas.height=result.width=result.height=1;
  }return await out.save()}finally{await viewer.destroy()}
 }
 export async function exportDocument(original,items,filters={}){
@@ -46,5 +46,12 @@ export async function exportDocument(original,items,filters={}){
    const physicalWidth=Math.hypot(right[0]-origin[0],right[1]-origin[1]),physicalHeight=Math.hypot(top[0]-origin[0],top[1]-origin[1]);
    const center=view.convertToPdfPoint(x+w/2,y+h/2),position=imagePlacement(center,physicalWidth,physicalHeight,view.rotation,item.angle||0);
    const png=await pdf.embedPng(elementPng({...item,aspect:physicalWidth/physicalHeight}));page.drawImage(png,{x:position.x,y:position.y,width:physicalWidth,height:physicalHeight,rotate:degrees(position.rotation)});
- }return await flattenFiltered(await pdf.save(),filters)}finally{await viewer.destroy()}
+ }return await flattenFiltered(await pdf.save(),filters,new Set(items.filter(item=>item.type==='cover').map(item=>item.page)))}finally{await viewer.destroy()}
+}
+export async function perspectiveCropPage(original,index,points){
+ const pdf=await PDFDocument.load(original),viewer=await pdfjs.getDocument({data:new Uint8Array(original)}).promise;
+ try{const source=await viewer.getPage(index+1),base=source.getViewport({scale:1}),scale=Math.min(2,2400/Math.max(base.width,base.height)),view=source.getViewport({scale});const canvas=document.createElement('canvas');canvas.width=Math.ceil(view.width);canvas.height=Math.ceil(view.height);const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);await source.render({canvasContext:ctx,viewport:view}).promise;
+  const warped=warpImageData(ctx.getImageData(0,0,canvas.width,canvas.height),points);const result=document.createElement('canvas');result.width=warped.width;result.height=warped.height;result.getContext('2d').putImageData(new ImageData(warped.data,warped.width,warped.height),0,0);
+  const physicalScale=1/scale,w=warped.width*physicalScale,h=warped.height*physicalScale;const image=await pdf.embedPng(result.toDataURL('image/png'));pdf.removePage(index);const page=pdf.insertPage(index,[w,h]);page.drawImage(image,{x:0,y:0,width:w,height:h});canvas.width=canvas.height=result.width=result.height=1;return await pdf.save();
+ }finally{await viewer.destroy()}
 }
