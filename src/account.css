@@ -26,6 +26,7 @@
 .account-dialog>.account-alert{margin:24px 0 0;font-size:13px}
 .account-import{text-align:left}
 .account-notice{text-align:center}
+.account-logout{display:block;margin:24px auto 0}
 @media(hover:hover) and (pointer:fine){.account-primary:hover:not(:disabled){background:#2d2d2d}.account-close:hover{background:#f4f4f4}.account-trigger:hover{background:#f4f4f4}}
 @media(max-width:600px){.account-dialog{padding:34px 22px 26px;border-radius:18px}.account-heading h2{font-size:24px}.account-form{padding:18px;margin-top:22px}.account-symbol{width:52px;height:52px;border-radius:16px;margin-bottom:17px}.account-footnote{margin-top:18px}}
 @media(prefers-reduced-motion:reduce){.account-dialog *{transition:none!important}}
