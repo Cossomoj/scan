@@ -72,3 +72,22 @@ test('rule removal leaves short marks and broad filled shapes intact',()=>{
  for(let x=15;x<35;x++)data.set([10,10,10,255],(45*width+x)*4);
  const original=data.slice();removeSignatureRule({data,width,height});assert.deepEqual(data,original);
 });
+
+test('removes a rule split by handwriting when only a short edge remains',()=>{
+ const width=440,height=250,data=new Uint8ClampedArray(width*height*4);
+ const pixel=(x,y,rgba)=>data.set(rgba,(y*width+x)*4);
+ for(let y=0;y<height;y++)for(let x=0;x<width;x++)pixel(x,y,[255,255,255,0]);
+ for(let x=285;x<width;x++){pixel(x,147,[195,195,195,180]);pixel(x,151,[195,195,195,180])}
+ for(let x=285;x<width;x++)for(let y=148;y<151;y++)pixel(x,y,[25,25,25,255]);
+ for(let y=125;y<170;y++)for(let x=345;x<359;x++)pixel(x,y,[30,40,120,255]);
+ for(let y=115;y<175;y++)for(let x=390;x<404;x++)pixel(x,y,[30,40,120,255]);
+ for(let x=70;x<115;x++)pixel(x,70,[20,20,20,255]);
+ removeSignatureRule({data,width,height});
+ const alpha=(x,y)=>data[(y*width+x)*4+3];
+ assert.equal(alpha(425,149),0,'short segment at right edge removed');
+ assert.equal(alpha(425,147),0,'antialiased edge removed');
+ assert.equal(alpha(370,149),0,'segment between strokes removed');
+ assert.equal(alpha(350,149),255,'first coloured stroke preserved');
+ assert.equal(alpha(395,149),255,'second coloured stroke preserved');
+ assert.equal(alpha(85,70),255,'unrelated short stroke preserved');
+});

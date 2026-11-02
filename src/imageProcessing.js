@@ -48,13 +48,19 @@ export function removeSignatureRule(imageData){
   const {data:d,width,height}=imageData;
   if(!width||!height||width<30||height<6)return imageData;
   const neutral=(x,y)=>{if(x<0||x>=width||y<0||y>=height)return false;const i=(y*width+x)*4,r=d[i],g=d[i+1],b=d[i+2];return d[i+3]>50&&Math.max(r,g,b)<165&&Math.max(r,g,b)-Math.min(r,g,b)<=24};
+  const ruleFringe=(x,y)=>{const i=(y*width+x)*4,r=d[i],g=d[i+1],b=d[i+2];return d[i+3]>30&&Math.max(r,g,b)<230&&Math.max(r,g,b)-Math.min(r,g,b)<=24};
   const ink=(x,y)=>{if(x<0||x>=width||y<0||y>=height)return false;const i=(y*width+x)*4;return d[i+3]>65&&Math.min(d[i],d[i+1],d[i+2])<190};
-  const candidates=new Uint8Array(height),spans=Array.from({length:height},()=>[]),gap=Math.max(2,Math.floor(width*.02)),minimum=Math.max(25,Math.round(width*.35));
+  const candidates=new Uint8Array(height),spans=Array.from({length:height},()=>[]),gap=Math.max(2,Math.floor(width*.05)),minimum=Math.max(25,Math.round(width*.35));
+  const edgeMargin=Math.max(2,Math.ceil(width*.01)),edgeMinimum=Math.max(25,Math.round(width*.10));
   for(let y=0;y<height;y++){
     let start=-1,last=-1;
     for(let x=0;x<=width;x++){
       if(x<width&&neutral(x,y)){if(start<0)start=x;last=x}
-      if(start>=0&&(x===width||x-last>gap)){if(last-start+1>=minimum){candidates[y]=1;spans[y].push([start,last])}start=-1;last=-1}
+      if(start>=0&&(x===width||x-last>gap)){
+        const length=last-start+1,atEdge=start<edgeMargin||last>=width-edgeMargin;
+        if(length>=minimum||(atEdge&&length>=edgeMinimum)){candidates[y]=1;spans[y].push([start,last])}
+        start=-1;last=-1;
+      }
     }
   }
   const maxBand=Math.max(3,Math.ceil(height*.035));
@@ -64,13 +70,21 @@ export function removeSignatureRule(imageData){
     if(end-y<=maxBand){
       const reach=Math.max(2,Math.min(5,Math.ceil(height*.025)));
       for(let x=0;x<width;x++){
-        let above=false,below=false;
-        for(let offset=1;offset<=reach;offset++)for(let dx=-1;dx<=1;dx++){
-          if(ink(x+dx,y-offset))above=true;
-          if(ink(x+dx,end-1+offset))below=true;
+        let above=0,below=0;
+        // Ignore the immediate antialiased edge of the printed rule. Preserve
+        // a crossing only when ink continues on multiple rows on both sides.
+        for(let offset=2;offset<=reach+1;offset++){
+          let upper=false,lower=false;
+          for(let dx=-1;dx<=1;dx++){
+            if(ink(x+dx,y-offset))upper=true;
+            if(ink(x+dx,end-1+offset))lower=true;
+          }
+          if(upper)above++;if(lower)below++;
         }
-        if(above&&below)continue;
-        for(let row=y;row<end;row++)if(spans[row].some(([left,right])=>x>=left&&x<=right)&&neutral(x,row))d[(row*width+x)*4+3]=0;
+        if(above>=2&&below>=2)continue;
+        let inRule=false;
+        for(let row=y;row<end&&!inRule;row++)inRule=spans[row].some(([left,right])=>x>=left&&x<=right);
+        if(inRule)for(let row=Math.max(0,y-2);row<Math.min(height,end+2);row++)if(ruleFringe(x,row))d[(row*width+x)*4+3]=0;
       }
     }
     y=end;
