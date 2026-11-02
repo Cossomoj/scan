@@ -1,0 +1,28 @@
+.landing .home-header{position:relative;z-index:20}
+.landing .home-header nav[aria-label="Главное меню"]{display:flex;align-items:center;gap:24px}
+.home-capabilities{position:static}
+.landing .capabilities-trigger{display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:9px 10px;border:0;border-radius:9px;background:transparent;color:#182028;font-size:13px;font-weight:700;cursor:pointer}
+.landing .capabilities-trigger[aria-expanded=true]{background:#eaf2ff;color:#0b57d0}
+.capabilities-chevron{width:15px;height:15px;transition:transform 150ms ease}.capabilities-trigger[aria-expanded=true] .capabilities-chevron{transform:rotate(180deg)}.capabilities-mobile-icon{display:none}
+.landing .capabilities-panel{position:absolute;top:calc(100% - 12px);left:50%;right:auto;transform:translateX(-50%);width:min(600px,calc(100% - 44px));display:grid;grid-template-columns:1fr 1.15fr;gap:22px;padding:22px;border:1px solid #dce5f1;border-radius:14px;background:#fff;box-shadow:0 18px 48px #18202826;color:#182028}
+.capabilities-column{min-width:0}.capabilities-tools{padding-left:22px;border-left:1px solid #e2eaf4}
+.landing .capabilities-panel h2{margin:0 0 12px;color:#52647a;font-size:11px;line-height:1.4;letter-spacing:.045em;text-transform:uppercase;font-weight:750}
+.landing .home-header nav .capabilities-panel a{min-height:0;font-size:13px;line-height:1.4;text-decoration:none}
+.landing .capabilities-panel .capabilities-all{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 0 14px;border-bottom:1px solid #e2eaf4;color:#0b57d0;font-weight:700}
+.capabilities-all svg,.capabilities-actions svg{width:16px;height:16px;flex:none}
+.capabilities-actions{display:grid;gap:2px;margin-top:8px}
+.landing .capabilities-actions button{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:39px;padding:8px 7px;border:0;border-radius:7px;background:transparent;color:#182028;text-align:left;font-size:13px;font-weight:650;cursor:pointer}.capabilities-actions button svg{color:#0b57d0;opacity:0}.landing .capabilities-actions button:disabled{opacity:.5;cursor:wait}
+.landing .home-header nav .capabilities-tool{display:flex;align-items:center;gap:10px;padding:11px 7px;border-radius:8px;color:#182028}
+.capabilities-tool>svg:first-child{width:19px;height:19px;flex:none;color:#0b57d0}.capabilities-tool>svg:last-child{width:15px;height:15px;flex:none;margin-left:auto;color:#0b57d0}.capabilities-tool span{min-width:0}.capabilities-tool strong,.capabilities-tool small{display:block}.capabilities-tool strong{font-size:13px;line-height:1.35}.capabilities-tool small{margin-top:3px;color:#52647a;font-size:11px;line-height:1.4;font-weight:400}
+.capabilities-tools p{margin:8px 0 0;padding-top:12px;border-top:1px solid #e2eaf4;color:#52647a;font-size:11px;line-height:1.5}
+@media(hover:hover){.landing .capabilities-trigger:hover,.landing .capabilities-actions button:hover:not(:disabled),.landing .home-header nav .capabilities-tool:hover{background:#f2f7ff;color:#0b57d0}.capabilities-actions button:hover svg{opacity:1}.landing .home-header nav .capabilities-all:hover{text-decoration:underline;text-underline-offset:4px}}
+@media(max-width:1000px){.landing .home-header nav[aria-label="Главное меню"]{gap:12px}}
+@media(max-width:700px){.landing .home-header nav[aria-label="Главное меню"]{display:flex;margin-left:auto;gap:0}.landing .home-header nav>.home-nav-link{display:none}.landing .home-header>.account-trigger{margin-left:0}}
+@media(max-width:600px){.home-capabilities{position:static}.landing .capabilities-panel{top:calc(100% - 3px);left:22px;right:22px;transform:none;width:auto;max-height:min(72vh,580px);overflow-y:auto;grid-template-columns:1fr;gap:18px;padding:20px}.capabilities-tools{padding:18px 0 0;border-left:0;border-top:1px solid #e2eaf4}.landing .capabilities-actions button{min-height:42px}.landing .home-header nav .capabilities-tool{padding-block:12px}}
+@media(max-width:430px){.landing .home-header nav[aria-label="Главное меню"]{display:flex}.landing .home-header>.account-trigger{margin-left:0}.landing .capabilities-trigger{width:44px;padding:8px}.capabilities-trigger span,.capabilities-trigger .capabilities-chevron{display:none}.capabilities-mobile-icon{display:block;width:20px;height:20px}}
+@media(prefers-reduced-motion:reduce){.capabilities-chevron{transition:none}}
+@media(max-width:600px){.landing .capabilities-panel{gap:12px;padding:16px;max-height:min(calc(100dvh - 100px),580px)}.landing .capabilities-panel h2{margin-bottom:8px}.landing .capabilities-panel .capabilities-all{padding-bottom:10px}.capabilities-actions{margin-top:4px}.landing .capabilities-actions button{min-height:34px;padding:6px}.capabilities-tools{padding-top:12px}.landing .home-header nav .capabilities-tool{padding-block:7px}.capabilities-tools p{display:none}}
+.landing .home-header .account-email{max-width:145px;white-space:nowrap}
+@media(max-width:950px){.landing .home-header nav>.home-nav-link{display:none}.landing .home-header nav[aria-label="Главное меню"]{margin-left:auto}}
+@media(max-width:430px){.landing .home-header{gap:8px}}
+@media(max-height:520px){.landing .capabilities-panel{max-height:calc(100dvh - 90px);overflow-y:auto}}

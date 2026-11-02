@@ -1,4 +1,4 @@
-import React, {useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {AccountButton} from './Account.jsx';
 import Brand from './Brand.jsx';
 import './landing.css';
@@ -7,6 +7,7 @@ import './landing-demo.css';
 import './landing-features.css';
 import './landing-hero.css';
 import './landing-faq.css';
+import './landing-menu.css';
 
 function Glyph({name, ...props}) {
   const paths = {
@@ -24,8 +25,33 @@ function Glyph({name, ...props}) {
     crop: <><path d="M6 3v13a2 2 0 0 0 2 2h13M3 6h13a2 2 0 0 1 2 2v13"/></>,
     filter: <><path d="M5 7h14v10H5zM3 11h18M8 3v4m8-4v4M8 17v4m8-4v4"/></>,
     pages: <><path d="M5 4h10l4 4v12H5zM14 4v5h5M8 13h8M8 16h6"/></>,
+    menu: <><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></>,
+    down: <path d="m7 10 5 5 5-5"/>,
   };
   return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>{paths[name]}</svg>;
+}
+
+function CapabilitiesMenu({onChoose,onDemo,busy}) {
+  const [open,setOpen]=useState(false),root=useRef(null),trigger=useRef(null);
+  useEffect(()=>{
+    if(!open)return;
+    const outside=e=>{if(!root.current?.contains(e.target))setOpen(false)};
+    const escape=e=>{if(e.key==='Escape'){e.preventDefault();setOpen(false);trigger.current?.focus()}};
+    document.addEventListener('pointerdown',outside);document.addEventListener('keydown',escape);
+    return()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',escape)};
+  },[open]);
+  const choose=()=>{setOpen(false);onChoose()};
+  const demo=tool=>{setOpen(false);onDemo(tool)};
+  return <div className="home-capabilities" ref={root} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget))setOpen(false)}}>
+    <button ref={trigger} type="button" className="capabilities-trigger" aria-label="Возможности" aria-expanded={open} aria-controls="capabilities-panel" onClick={()=>setOpen(v=>!v)}><Glyph name="menu" className="capabilities-mobile-icon"/><span>Возможности</span><Glyph name="down" className="capabilities-chevron"/></button>
+    {open&&<div id="capabilities-panel" className="capabilities-panel">
+      <div className="capabilities-column"><h2>Возможности</h2><a className="capabilities-all" href="#features" onClick={()=>setOpen(false)}>Все возможности <Glyph name="arrow"/></a><div className="capabilities-actions">{['Подписать PDF','Подписать Word','Подписать Excel','Поставить печать','Нарисовать подпись'].map(label=><button type="button" key={label} disabled={busy} onClick={choose}>{label}<Glyph name="arrow"/></button>)}</div></div>
+      <div className="capabilities-column capabilities-tools"><h2>Инструменты</h2><a className="capabilities-all" href="#try" onClick={()=>setOpen(false)}>Все инструменты <Glyph name="arrow"/></a>
+        {[['filter','filter','Эффект сканера','Попробуйте фильтр страницы'],['signature','clean','Подпись без фона','Настройте прозрачность'],['extract','crop','Вырезать со страницы','Выделите подпись или печать']].map(([tool,icon,label,description])=><a className="capabilities-tool" href="#try" key={tool} onClick={()=>demo(tool)}><Glyph name={icon}/><span><strong>{label}</strong><small>{description}</small></span><Glyph name="arrow"/></a>)}
+        <p>Выберите инструмент и попробуйте его на учебном примере.</p>
+      </div>
+    </div>}
+  </div>;
 }
 
 
@@ -42,10 +68,11 @@ const demoTools = [
   {id:'pages', icon:'pages', title:'Страницы'},
 ];
 
-function EditorDemo({onExample, busy}) {
+function EditorDemo({onExample, busy, requestedTool}) {
   const [tool,setTool]=useState('signature'), [angle,setAngle]=useState(-8), [strength,setStrength]=useState(100), [name,setName]=useState('Анна Смирнова'), [position,setPosition]=useState({x:60,y:66});
   const [covered,setCovered]=useState(false), [filter,setFilter]=useState('none');
   const page=useRef(null), drag=useRef(null);
+  useEffect(()=>{if(requestedTool?.name)setTool(requestedTool.name)},[requestedTool]);
   const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
   const move=e=>{
     if(!drag.current||drag.current.id!==e.pointerId)return;
@@ -101,7 +128,7 @@ const features = [
 ];
 
 function FeatureGallery(){
-  return <section className="home-features" aria-labelledby="features-title">
+  return <section className="home-features" id="features" aria-labelledby="features-title">
     <div className="features-heading"><h2 id="features-title">Всё для работы<br/>с документами</h2><p>От подписи и заполнения до обработки страниц — всё в одном редакторе.</p></div>
     <div className="features-grid">{features.map(feature=><article className="feature-card" key={feature.image}>
       <div className={'feature-preview feature-preview-'+feature.image}><img src={'/feature-previews/'+feature.image+'.png'+(feature.image==='stamp'?'?v=2':'')} alt="" loading="lazy" decoding="async"/></div>
@@ -121,12 +148,12 @@ const questions = [
 ];
 
 export default function Landing({onChoose,onDropFile,onExample,busy,error}) {
-  const [dragging,setDragging]=useState(false), [dropError,setDropError]=useState('');
+  const [dragging,setDragging]=useState(false), [dropError,setDropError]=useState(''), [requestedTool,setRequestedTool]=useState(null);
   const onDrop=e=>{e.preventDefault();setDragging(false);if(busy)return;const files=e.dataTransfer.files;if(files.length!==1){setDropError('Перетащите один файл. Остальные страницы можно добавить в редакторе.');return}setDropError('');onDropFile(files[0])};
   const choose=mode=>{setDropError('');onChoose(mode)};
   return <div className="landing">
     <a className="home-skip" href="#main">Перейти к содержимому</a>
-    <header className="home-header"><Brand/><nav aria-label="Главное меню"><a href="#how">Как это работает</a><a href="#questions">Вопросы</a></nav><AccountButton/><button className="home-header-action" disabled={busy} onClick={()=>choose('self')}>Открыть документ <Glyph name="arrow"/></button></header>
+    <header className="home-header"><Brand/><nav aria-label="Главное меню"><CapabilitiesMenu busy={busy} onChoose={()=>choose('self')} onDemo={name=>setRequestedTool({name})}/><a className="home-nav-link" href="#how">Как это работает</a><a className="home-nav-link" href="#questions">Вопросы</a></nav><AccountButton/><button className="home-header-action" disabled={busy} onClick={()=>choose('self')}>Открыть документ <Glyph name="arrow"/></button></header>
     <main id="main">
       <section className="home-hero" aria-labelledby="home-title">
         <div className="home-intro">
@@ -143,7 +170,7 @@ export default function Landing({onChoose,onDropFile,onExample,busy,error}) {
           {(error||dropError)&&<p className="home-error" role="alert">{dropError||error}</p>}
         </div>
       </section>
-      <EditorDemo onExample={onExample} busy={busy}/>
+      <EditorDemo onExample={onExample} busy={busy} requestedTool={requestedTool}/>
       <FeatureGallery/>
       <section className="home-how" id="how" aria-labelledby="how-title"><div className="home-section-intro"><h2 id="how-title">Три шага.<br/>И документ готов.</h2><p>Заявление, анкета или договор —<br/>всё делается в одном окне.</p></div><ol className="home-steps"><li><span>1</span><div><h3>Откройте документ</h3><p>Выберите файл на компьютере или телефоне. Страницы появятся в редакторе.</p></div></li><li><span>2</span><div><h3>Добавьте нужное</h3><p>Подпись, печать, текст или галочку. Перемещайте элементы и меняйте их размер.</p></div></li><li><span>3</span><div><h3>Скачайте результат</h3><p>Нажмите «Скачать PDF». Документ с вашими изменениями сохранится на устройство.</p></div></li></ol></section>
       <section className="home-faq" id="questions" aria-labelledby="questions-title"><div className="faq-intro"><h2 id="questions-title">Всё, что хочется уточнить</h2><p>Ответы о документах, подписях и работе сервиса.</p></div><div className="faq-list">{questions.map(([q,a],i)=><details key={q} id={'question-'+i}><summary><span>{q}</span><Glyph name="plus"/></summary><p>{a}</p></details>)}</div></section>
