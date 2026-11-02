@@ -12,6 +12,8 @@
 .landing .home-faq details[open] summary>svg{transform:rotate(45deg)}
 .landing .home-faq details>p{max-width:72ch;margin:0;padding:0 24px 23px;color:#41546c;font-size:14px;line-height:1.75}
 .landing .home-faq details>p strong{color:#182028}.landing .home-faq details>p a{color:#0b57d0;font-weight:650;overflow-wrap:anywhere}
+.landing .home-faq .faq-feedback-link{display:inline;padding:0;border:0;background:none;color:#0b57d0;font:inherit;font-weight:650;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.landing .home-faq .faq-feedback-link:focus-visible{outline:2px solid #0b57d0;outline-offset:3px}
 @media(hover:hover){.landing .home-faq details:hover{border-color:#9cbcf3}.landing .home-faq summary:hover{color:#0b57d0}}
 @media(max-width:600px){.landing .home-faq{padding:8px 0 64px}.landing .home-faq .faq-intro{margin-bottom:22px}.landing .home-faq .faq-intro h2{font-size:30px}.landing .home-faq .faq-intro>p{font-size:14px}.landing .home-faq .faq-list{gap:10px}.landing .home-faq summary{min-height:68px;padding:18px;font-size:14px}.landing .home-faq details>p{padding:0 18px 19px;font-size:13px;line-height:1.7}}
 @media(prefers-reduced-motion:reduce){.landing .home-faq details,.landing .home-faq summary>svg{transition:none}}
