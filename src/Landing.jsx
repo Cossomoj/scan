@@ -104,7 +104,7 @@ function FeatureGallery(){
   return <section className="home-features" aria-labelledby="features-title">
     <div className="features-heading"><h2 id="features-title">Всё для работы<br/>с документами</h2><p>От подписи и заполнения до обработки страниц — всё в одном редакторе.</p></div>
     <div className="features-grid">{features.map(feature=><article className="feature-card" key={feature.image}>
-      <div className={'feature-preview feature-preview-'+feature.image}><img src={'/feature-previews/'+feature.image+'.png'} alt="" loading="lazy" decoding="async"/></div>
+      <div className={'feature-preview feature-preview-'+feature.image}><img src={'/feature-previews/'+feature.image+'.png'+(feature.image==='stamp'?'?v=2':'')} alt="" loading="lazy" decoding="async"/></div>
       <div className="feature-copy"><h3>{feature.title}</h3><p>{feature.description}</p></div>
     </article>)}</div>
   </section>;
