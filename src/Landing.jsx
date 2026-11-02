@@ -3,6 +3,7 @@ import {AccountButton} from './Account.jsx';
 import Brand from './Brand.jsx';
 import './landing.css';
 import './footer.css';
+import './landing-demo.css';
 
 function Glyph({name, ...props}) {
   const paths = {
@@ -18,6 +19,10 @@ function Glyph({name, ...props}) {
     plus: <path d="M12 5v14M5 12h14"/>,
     reset: <><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/></>,
     move: <><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></>,
+    cover: <><path d="M4 8h16v5H4zM7 17h10"/></>,
+    crop: <><path d="M6 3v13a2 2 0 0 0 2 2h13M3 6h13a2 2 0 0 1 2 2v13"/></>,
+    filter: <><path d="M5 7h14v10H5zM3 11h18M8 3v4m8-4v4M8 17v4m8-4v4"/></>,
+    pages: <><path d="M5 4h10l4 4v12H5zM14 4v5h5M8 13h8M8 16h6"/></>,
   };
   return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>{paths[name]}</svg>;
 }
@@ -28,50 +33,57 @@ function DemoSignature() {
 }
 
 const demoTools = [
-  {id:'signature', icon:'pen', title:'Подпись', subtitle:'Разместите там, где нужно', heading:'Ваша подпись. На своём месте.', description:'Загрузите фото или нарисуйте подпись. Меняйте размер и наклон прямо на документе.'},
-  {id:'text', icon:'text', title:'Текст', subtitle:'Заполните пустые строки', heading:'Печатайте прямо в документе.', description:'Имя, дата или ответ в анкете — просто выберите место и введите текст. Шаблон сохранять необязательно.'},
-  {id:'background', icon:'clean', title:'Убрать фон', subtitle:'Оставьте только подпись', heading:'Бумажный фон — под контролем.', description:'Уберите светлый фон с фотографии подписи или печати. Настройте результат на самом документе.'},
+  {id:'signature', icon:'pen', title:'Подпись'},
+  {id:'text', icon:'text', title:'Текст'},
+  {id:'cover', icon:'cover', title:'Замазка'},
+  {id:'extract', icon:'crop', title:'Вырезать'},
+  {id:'filter', icon:'filter', title:'Фильтр'},
+  {id:'pages', icon:'pages', title:'Страницы'},
 ];
 
 function EditorDemo({onExample, busy}) {
   const [tool,setTool]=useState('signature'), [angle,setAngle]=useState(-8), [strength,setStrength]=useState(100), [name,setName]=useState('Анна Смирнова'), [position,setPosition]=useState({x:60,y:66});
+  const [covered,setCovered]=useState(false), [filter,setFilter]=useState('none');
   const page=useRef(null), drag=useRef(null);
-  const active=demoTools.find(t=>t.id===tool);
   const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
   const move=e=>{
     if(!drag.current||drag.current.id!==e.pointerId)return;
     const rect=page.current.getBoundingClientRect();
     setPosition({x:clamp(drag.current.x+(e.clientX-drag.current.px)/rect.width*100,5,60),y:clamp(drag.current.y+(e.clientY-drag.current.py)/rect.height*100,16,66)});
   };
-  const reset=()=>{setAngle(-8);setStrength(100);setName('Анна Смирнова');setPosition({x:60,y:66})};
+  const reset=()=>{setAngle(-8);setStrength(100);setName('Анна Смирнова');setPosition({x:60,y:66});setCovered(false);setFilter('none')};
   return <section className="home-demo" id="try" aria-labelledby="demo-title">
-    <div className="demo-topline"><h2 id="demo-title">Попробуйте прямо здесь</h2><span>Учебный пример · изменения не сохраняются</span></div>
+    <div className="demo-topline"><div><h2 id="demo-title">Попробуйте редактор</h2><p>Посмотрите, как работать с документом.</p></div><span>Учебный пример · изменения не сохраняются</span></div>
     <div className="demo-workspace">
-      <div className="demo-sidebar">
-        <div className="demo-tools" role="group" aria-label="Инструменты примера">{demoTools.map(t=><button key={t.id} type="button" aria-pressed={tool===t.id} onClick={()=>setTool(t.id)}><Glyph name={t.icon}/><span><strong>{t.title}</strong><small>{t.subtitle}</small></span><Glyph name="arrow"/></button>)}</div>
-        <div className="demo-explanation"><h3>{active.heading}</h3><p>{active.description}</p></div>
-        <button className="home-text-action demo-open" disabled={busy} onClick={onExample}>Открыть полный редактор <Glyph name="arrow"/></button>
-      </div>
-      <div className="demo-preview">
-        <div className="demo-document-bar"><span><Glyph name="file"/> Пример.pdf</span><button type="button" className="demo-reset" onClick={reset} aria-label="Сбросить пример" title="Сбросить пример"><Glyph name="reset"/></button></div>
-        <div className="demo-paper" ref={page}>
-          <div className="demo-paper-head"><strong>КОНТОРКА / ПРИМЕР</strong><span>01</span></div>
-          <h3>Заявление</h3><p className="demo-paper-intro">Всё важное — в одном документе.</p>
-          <div className="demo-name-row"><span>Имя и фамилия</span>{tool==='text'?<input aria-label="Текст в учебном документе" value={name} maxLength={40} onChange={e=>setName(e.target.value)} placeholder="Введите имя и фамилию"/>:<div className="demo-name-value">{name||'Имя и фамилия'}</div>}</div>
-          <p className="demo-paper-note">Этот документ создан для знакомства с редактором.<br/>Здесь можно попробовать инструменты без своего файла.</p>
-          <div className="demo-paper-signline"><span>Дата<br/><b>31 октября 2026</b></span><span>Подпись<br/><b className="demo-sign-rule"/></span></div>
-          <button type="button" className={'demo-signature '+(tool==='signature'?'is-selected':'')} style={{left:position.x+'%',top:position.y+'%',transform:`rotate(${angle}deg)`,backgroundColor:`rgb(224 218 205 / ${1-strength/100})`}}
-            aria-label="Переместить учебную подпись. Используйте стрелки на клавиатуре" title="Перетащите подпись или используйте стрелки"
-            onPointerDown={e=>{if(drag.current||!e.isPrimary||e.button!==0)return;e.currentTarget.focus();e.currentTarget.setPointerCapture(e.pointerId);drag.current={id:e.pointerId,px:e.clientX,py:e.clientY,...position}}}
-            onPointerMove={move} onPointerUp={()=>drag.current=null} onPointerCancel={()=>drag.current=null} onLostPointerCapture={()=>drag.current=null}
-            onKeyDown={e=>{const delta={ArrowLeft:[-2,0],ArrowRight:[2,0],ArrowUp:[0,-2],ArrowDown:[0,2]}[e.key];if(delta){e.preventDefault();setPosition(p=>({x:clamp(p.x+delta[0],5,60),y:clamp(p.y+delta[1],16,66)}))}}}>
-            <DemoSignature/>{tool==='signature'&&<span className="demo-drag-label"><Glyph name="move"/> Перетащите</span>}
-          </button>
+      <div className="demo-editor-bar"><span><Glyph name="file"/> Пример.pdf</span><button type="button" disabled={busy} onClick={onExample}>Открыть редактор <Glyph name="arrow"/></button></div>
+      <div className="demo-editor-body">
+        <nav className="demo-tools" aria-label="Инструменты учебного редактора">{demoTools.map(t=><button key={t.id} type="button" aria-pressed={tool===t.id} onClick={()=>setTool(t.id)}><Glyph name={t.icon}/><span>{t.title}</span></button>)}</nav>
+        <div className="demo-sidebar">
+          {tool==='signature'&&<><h3>Подписи и печати</h3><p className="demo-tip">Подпись можно переместить, изменить её наклон и убрать фон.</p><div className="demo-sign-card"><span><DemoSignature/></span><div><strong>Подпись</strong><small>Уже на документе</small></div></div><label className="demo-side-control">Наклон <output>{angle}°</output><input type="range" min="-30" max="30" value={angle} onChange={e=>setAngle(+e.target.value)}/></label><label className="demo-side-control">Удаление фона <output>{strength}%</output><input type="range" min="0" max="100" value={strength} onChange={e=>setStrength(+e.target.value)}/></label></>}
+          {tool==='text'&&<><h3>Текст</h3><p className="demo-tip">Заполняйте документ прямо на странице и сохраняйте часто используемый текст.</p><label className="demo-field">Имя в документе<input aria-label="Текст в учебном документе" value={name} maxLength={40} onChange={e=>setName(e.target.value)} placeholder="Введите имя и фамилию"/></label><p className="demo-side-note">Измените текст, чтобы увидеть результат справа.</p></>}
+          {tool==='cover'&&<><h3>Замазка</h3><p className="demo-tip">Закройте нужную область документа цветной плашкой.</p><button className="demo-panel-action" type="button" onClick={()=>setCovered(v=>!v)}>{covered?'Убрать замазку':'Добавить замазку'}</button><p className="demo-side-note">В редакторе плашку можно перемещать и менять её размер.</p></>}
+          {tool==='extract'&&<><h3>Вырезать со страницы</h3><p className="demo-tip">Выделите подпись или печать на скане, чтобы сохранить её в библиотеку.</p><ol className="demo-instructions"><li>Выделите область на странице.</li><li>Уберите фон и сохраните изображение.</li></ol><p className="demo-side-note">Попробуйте на учебном PDF в полном редакторе.</p></>}
+          {tool==='filter'&&<><h3>Фильтр страницы</h3><p className="demo-tip">Фильтр применяется ко всей странице вместе с отметками.</p><div className="demo-filter-list" role="group" aria-label="Фильтр учебной страницы">{[['none','Без фильтра'],['mono','Чёрно-белый скан'],['gray','Серый скан'],['color','Цветной скан'],['copy','Ксерокопия']].map(([id,label])=><button type="button" key={id} aria-pressed={filter===id} onClick={()=>setFilter(id)}>{label}</button>)}</div></>}
+          {tool==='pages'&&<><h3>Страницы</h3><p className="demo-tip">Добавляйте страницы, меняйте их порядок и поворачивайте.</p><div className="demo-page-card"><Glyph name="file"/><span><strong>Страница 1</strong><small>Пример.pdf</small></span><b>1 / 1</b></div><p className="demo-side-note">Все действия со страницами доступны в полном редакторе.</p></>}
+          <button className="home-text-action demo-open" disabled={busy} onClick={onExample}>Открыть полный редактор <Glyph name="arrow"/></button>
         </div>
-        <div className="demo-controls">
-          {tool==='signature'&&<label>Наклон подписи <input type="range" min="-30" max="30" value={angle} onChange={e=>setAngle(+e.target.value)}/><output>{angle}°</output></label>}
-          {tool==='background'&&<label>Удаление фона <input type="range" min="0" max="100" value={strength} onChange={e=>setStrength(+e.target.value)}/><output>{strength}%</output></label>}
-          {tool==='text'&&<p><Glyph name="text"/> Нажмите на имя в документе и введите своё.</p>}
+        <div className="demo-preview">
+          <div className="demo-document-bar"><span>Страница 1 из 1</span><button type="button" className="demo-reset" onClick={reset} aria-label="Сбросить пример" title="Сбросить пример"><Glyph name="reset"/></button></div>
+          <div className={'demo-paper demo-filter-'+filter} ref={page}>
+            <div className="demo-paper-head"><strong>КОНТОРКА / ПРИМЕР</strong><span>01</span></div>
+            <h3>Заявление</h3><p className="demo-paper-intro">Всё важное — в одном документе.</p>
+            <div className="demo-name-row"><span>Имя и фамилия</span><div className="demo-name-value">{name||'Имя и фамилия'}</div>{covered&&<div className="demo-cover" aria-label="Пример замазки"/>}</div>
+            <p className="demo-paper-note">Этот документ создан для знакомства с редактором.<br/>Здесь можно попробовать инструменты без своего файла.</p>
+            <div className="demo-paper-signline"><span>Дата<br/><b>31 октября 2026</b></span><span>Подпись<br/><b className="demo-sign-rule"/></span></div>
+            <button type="button" className={'demo-signature '+(tool==='signature'?'is-selected':'')} style={{left:position.x+'%',top:position.y+'%',transform:`rotate(${angle}deg)`,backgroundColor:`rgb(224 218 205 / ${1-strength/100})`}}
+              aria-label="Переместить учебную подпись. Используйте стрелки на клавиатуре" title="Перетащите подпись или используйте стрелки"
+              onPointerDown={e=>{if(drag.current||!e.isPrimary||e.button!==0)return;e.currentTarget.focus();e.currentTarget.setPointerCapture(e.pointerId);drag.current={id:e.pointerId,px:e.clientX,py:e.clientY,...position}}}
+              onPointerMove={move} onPointerUp={()=>drag.current=null} onPointerCancel={()=>drag.current=null} onLostPointerCapture={()=>drag.current=null}
+              onKeyDown={e=>{const delta={ArrowLeft:[-2,0],ArrowRight:[2,0],ArrowUp:[0,-2],ArrowDown:[0,2]}[e.key];if(delta){e.preventDefault();setPosition(p=>({x:clamp(p.x+delta[0],5,60),y:clamp(p.y+delta[1],16,66)}))}}}>
+              <DemoSignature/>{tool==='signature'&&<span className="demo-drag-label"><Glyph name="move"/> Перетащите</span>}
+            </button>
+          </div>
+          <div className="demo-preview-footer"><span>Учебный документ</span><span>1 / 1</span><span>50%</span></div>
         </div>
       </div>
     </div>
