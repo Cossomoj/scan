@@ -7,6 +7,10 @@ import { resolve } from 'node:path';
 import { PDFDocument, degrees } from 'pdf-lib';
 import {setupAccounts} from './account.js';
 import {setupAdmin} from './admin.js';
+import {setupBilling} from './billing.js';
+import {setupPaymentSettings} from './paymentSettings.js';
+import {setupBillingRoutes} from './billingRoutes.js';
+import {setupCloudNotifications,setupCloudOrders} from './cloudRoutes.js';
 
 const dataDir = resolve(process.env.DATA_DIR || './data');
 mkdirSync(dataDir, { recursive: true, mode: 0o700 });
@@ -22,9 +26,15 @@ app.use((req, res, next) => { res.set({'X-Content-Type-Options':'nosniff','Refer
 const buckets=new Map();
 app.use('/api',(req,res,next)=>{const period=req.method==='POST' && req.path==='/requests' ? 3600000 : 60000, limit=period===3600000 ? 10 : 120, key=req.ip+':'+period, time=Date.now(); let bucket=buckets.get(key); if(!bucket||bucket.until<=time) bucket={count:0,until:time+period}; bucket.count++;buckets.set(key,bucket); if(bucket.count>limit)return res.status(429).json({error:'Слишком много запросов. Попробуйте позже.'});next();});
 setInterval(()=>{const time=Date.now();for(const [key,b] of buckets)if(b.until<=time)buckets.delete(key)},60000).unref();
+app.use('/api/cloudpayments',express.raw({type:'application/x-www-form-urlencoded',limit:'64kb'}));
 app.use(express.json({ limit: '4mb' }));
-setupAccounts(app,db,{dataDir});
-setupAdmin(app,db);
+const accounts=setupAccounts(app,db,{dataDir});
+const billing=setupBilling(db);
+const paymentSettings=setupPaymentSettings(db,dataDir);
+setupCloudNotifications(app,{db,billing,paymentSettings});
+setupAdmin(app,db,{billing,paymentSettings});
+setupBillingRoutes(app,{billing,accounts});
+setupCloudOrders(app,{billing,paymentSettings,accounts});
 const upload = multer({storage:multer.memoryStorage(),limits:{fileSize:20*1024*1024, files:1, fields:3}});
 const officeUpload = multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024,files:1,fields:0}});
 const hash = (s) => createHash('sha256').update(s).digest('hex');
@@ -67,9 +77,10 @@ app.post('/api/requests', upload.single('file'), async (req,res,next) => { try {
   res.status(201).json({id,owner,expires,signers:links.map(({name,token})=>({name,token}))});
 } catch(e) {next(e)} });
 app.get('/api/requests/:id/owner', (req,res) => {const r=ownerAuth(req); if(!r)return res.sendStatus(404); res.json(info(r));});
-app.get('/api/requests/:id/owner/pdf', (req,res) => {const r=ownerAuth(req); if(!r)return res.sendStatus(404); res.type('application/pdf').send(Buffer.from(r.pdf));});
+const chargeRemoteDownload=(req,res,pdf)=>{if(process.env.BILLING_ENABLED!=='1')return true;const user=accounts.session(req);if(!user){res.status(401).json({error:'Войдите в профиль, чтобы скачать документ.'});return false}try{billing.debit(user.id,req.get('X-Download-Id'),createHash('sha256').update(pdf).digest('hex'));return true}catch(e){res.status(e.code==='INSUFFICIENT_FUNDS'?402:400).json({error:e.message});return false}};
+app.get('/api/requests/:id/owner/pdf', (req,res) => {const r=ownerAuth(req); if(!r)return res.sendStatus(404); if(!chargeRemoteDownload(req,res,r.pdf))return;res.type('application/pdf').send(Buffer.from(r.pdf));});
 app.get('/api/requests/:id/sign', (req,res) => {const auth=signerAuth(req); if(!auth)return res.sendStatus(404); res.json({...info(auth.r),signer:auth.s.name,completed:!!auth.s.signed,ready:active(auth.s)});});
-app.get('/api/requests/:id/sign/pdf', (req,res) => {const a=signerAuth(req); if(!a)return res.sendStatus(404); if(!a.s.signed&&!active(a.s))return res.status(409).json({error:'Документ пока недоступен для подписи.'}); res.type('application/pdf').send(Buffer.from(a.r.pdf));});
+app.get('/api/requests/:id/sign/pdf', (req,res) => {const a=signerAuth(req); if(!a)return res.sendStatus(404); if(!a.s.signed&&!active(a.s))return res.status(409).json({error:'Документ пока недоступен для подписи.'});if(a.s.signed&&!chargeRemoteDownload(req,res,a.r.pdf))return; res.type('application/pdf').send(Buffer.from(a.r.pdf));});
 app.post('/api/requests/:id/sign', async (req,res,next) => {try {
  const a=signerAuth(req); if(!a)return res.sendStatus(404); if(!active(a.s))return res.status(409).json({error:'Документ уже подписан или ожидает другого участника.'});
  const {page,x,y,width,height,image}=req.body; if(!Number.isInteger(page)||![x,y,width,height].every(Number.isFinite)||x<0||y<0||width<=0||height<=0||x+width>1.0001||y+height>1.0001||typeof image!=='string'||!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(image)) return res.status(400).json({error:'Некорректное поле подписи.'});

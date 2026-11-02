@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {AccountButton} from './Account.jsx';
+import {AccountButton,useAccount} from './Account.jsx';
+import {Pricing,useBillingStatus} from './Billing.jsx';
 import Brand from './Brand.jsx';
 import './landing.css';
 import './footer.css';
@@ -149,6 +150,7 @@ const questions = [
 
 export default function Landing({onChoose,onDropFile,onExample,busy,error}) {
   const [dragging,setDragging]=useState(false), [dropError,setDropError]=useState(''), [requestedTool,setRequestedTool]=useState(null);
+  const {user,openAccount}=useAccount(),[billing]=useBillingStatus();
   const onDrop=e=>{e.preventDefault();setDragging(false);if(busy)return;const files=e.dataTransfer.files;if(files.length!==1){setDropError('Перетащите один файл. Остальные страницы можно добавить в редакторе.');return}setDropError('');onDropFile(files[0])};
   const choose=mode=>{setDropError('');onChoose(mode)};
   return <div className="landing">
@@ -159,7 +161,7 @@ export default function Landing({onChoose,onDropFile,onExample,busy,error}) {
         <div className="home-intro">
           <h1 id="home-title">Подписывайте<br/><span>документы онлайн.</span></h1>
           <p>Заполните документ, добавьте подпись или печать и скачайте готовый PDF.</p>
-          <ul className="home-benefits"><li><Glyph name="check"/>PDF, Word, Excel и фотографии</li><li><Glyph name="check"/>Без принтера и сканера</li><li><Glyph name="check"/>Бесплатно и без регистрации</li></ul>
+          <ul className="home-benefits"><li><Glyph name="check"/>PDF, Word, Excel и фотографии</li><li><Glyph name="check"/>Без принтера и сканера</li><li><Glyph name="check"/>{billing?.enabled?'Редактирование без регистрации':'Бесплатно и без регистрации'}</li></ul>
           <button className="home-button home-hero-action" disabled={busy} onClick={()=>choose('self')}>Подписать документ <Glyph name="arrow"/></button>
         </div>
         <div className={'home-upload '+(dragging?'is-dragging':'')} onDragEnter={e=>{e.preventDefault();if(e.dataTransfer.types.includes('Files'))setDragging(true)}} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect=busy?'none':'copy'}} onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragging(false)}} onDrop={onDrop} aria-busy={busy}>
@@ -172,8 +174,9 @@ export default function Landing({onChoose,onDropFile,onExample,busy,error}) {
       </section>
       <EditorDemo onExample={onExample} busy={busy} requestedTool={requestedTool}/>
       <FeatureGallery/>
+      <Pricing user={user} openAccount={openAccount}/>
       <section className="home-how" id="how" aria-labelledby="how-title"><div className="home-section-intro"><h2 id="how-title">Три шага.<br/>И документ готов.</h2><p>Заявление, анкета или договор —<br/>всё делается в одном окне.</p></div><ol className="home-steps"><li><span>1</span><div><h3>Откройте документ</h3><p>Выберите файл на компьютере или телефоне. Страницы появятся в редакторе.</p></div></li><li><span>2</span><div><h3>Добавьте нужное</h3><p>Подпись, печать, текст или галочку. Перемещайте элементы и меняйте их размер.</p></div></li><li><span>3</span><div><h3>Скачайте результат</h3><p>Нажмите «Скачать PDF». Документ с вашими изменениями сохранится на устройство.</p></div></li></ol></section>
-      <section className="home-faq" id="questions" aria-labelledby="questions-title"><div className="faq-intro"><h2 id="questions-title">Всё, что хочется уточнить</h2><p>Ответы о документах, подписях и работе сервиса.</p></div><div className="faq-list">{questions.map(([q,a],i)=><details key={q} id={'question-'+i}><summary><span>{q}</span><Glyph name="plus"/></summary><p>{a}</p></details>)}</div></section>
+      <section className="home-faq" id="questions" aria-labelledby="questions-title"><div className="faq-intro"><h2 id="questions-title">Всё, что хочется уточнить</h2><p>Ответы о документах, подписях и работе сервиса.</p></div><div className="faq-list">{questions.map(([q,a],i)=><details key={q} id={'question-'+i}><summary><span>{q}</span><Glyph name="plus"/></summary><p>{billing?.enabled&&i===0?<>Открывайте и редактируйте документы без регистрации. Для скачивания войдите в профиль. Один документ стоит 10 ₽; при регистрации начисляется 10 ₽. Можно выбрать тариф на 30 или 365 дней.</>:billing?.enabled&&i===3?<>PDF и фотографии обрабатываются в браузере при редактировании. Для формирования готового PDF документ и изменения временно передаются на сервер. Word и Excel также временно отправляются на сервер для преобразования в PDF. Сохранённые подписи и тексты остаются в браузере или в аккаунте.</>:a}</p></details>)}</div></section>
       <section className="home-bottom"><h2>Осталось только подписать.</h2><button className="home-button" disabled={busy} onClick={()=>choose('self')}>Открыть документ <Glyph name="arrow"/></button></section>
     </main>
     <footer className="home-footer">

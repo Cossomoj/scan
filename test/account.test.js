@@ -6,10 +6,12 @@ import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {setupAccounts,validEmail} from '../server/account.js';
+import {setupBilling} from '../server/billing.js';
 
 test('email login protects accounts, expires codes, isolates saved items and honours logout',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'list-account-')),db=new DatabaseSync(':memory:'),outbox=[];let time=1700000000000;
  const app=express();app.use(express.json({limit:'4mb'}));setupAccounts(app,db,{dataDir:dir,sendMail:async(to,code)=>outbox.push({to,code}),clock:()=>time,production:true});
+ const billing=setupBilling(db,{clock:()=>time});
  const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));const root=`http://127.0.0.1:${server.address().port}`;
  const call=(path,{method='GET',body,cookie,origin}={})=>fetch(root+'/api/account/'+path,{method,headers:{...(body?{'Content-Type':'application/json'}:{}),...(cookie?{cookie}:{}),...(origin?{origin}:{})},body:body?JSON.stringify(body):undefined});
  const post=(path,body,cookie)=>call(path,{method:'POST',body,cookie});
@@ -22,7 +24,9 @@ test('email login protects accounts, expires codes, isolates saved items and hon
   assert.equal((await post('code',{email:'alice@example.com'})).status,429);
   assert.equal((await post('verify',{email:'alice@example.com',code:outbox[0].code==='000000'?'000001':'000000'})).status,400);
   let r=await post('verify',{email:'alice@example.com',code:outbox[0].code});assert.equal(r.status,200);const alice=r.headers.get('set-cookie');assert.match(alice,/HttpOnly/);assert.match(alice,/SameSite=Strict/);assert.match(alice,/Secure/);
+  const aliceId=db.prepare('SELECT id FROM users WHERE email=?').get('alice@example.com').id;assert.equal(billing.state(aliceId).balance,1000);
   assert.equal((await post('verify',{email:'alice@example.com',code:outbox[0].code})).status,400);
+  assert.equal(billing.state(aliceId).balance,1000);
   const item={id:'asset-a',kind:'text',name:'Пример',text:'Пример',color:'#17233b',widthMm:50,heightMm:10};
   assert.equal((await call('assets/asset-a',{method:'PUT',body:item})).status,401);
   assert.equal((await call('assets/asset-a',{method:'PUT',body:item,cookie:alice})).status,200);

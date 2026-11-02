@@ -11,11 +11,13 @@ RUN pnpm build
 FROM node:24-alpine
 ENV NODE_ENV=production PORT=3000 DATA_DIR=/app/data
 WORKDIR /app
+RUN apk add --no-cache ttf-liberation
 RUN corepack enable && corepack prepare pnpm@11.25.0 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --prod --frozen-lockfile && mkdir -p /app/data && chown node:node /app/data
 COPY --from=build /app/dist ./dist
 COPY server ./server
+COPY src/placement.js src/editorTransforms.js ./src/
 USER node
 EXPOSE 3000
 CMD ["node","server/index.js"]

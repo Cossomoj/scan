@@ -2,7 +2,7 @@ import {createHash,randomBytes,scryptSync,timingSafeEqual} from 'node:crypto';
 
 const hash=s=>createHash('sha256').update(s).digest('hex');
 const cookie=req=>/(?:^|;\s*)zapdf_admin=([A-Za-z0-9_-]{43})(?:;|$)/.exec(req.headers.cookie||'')?.[1]||'';
-export function setupAdmin(app,db,{clock=Date.now,credential=process.env.ADMIN_CREDENTIAL,production=process.env.NODE_ENV==='production'}={}){
+export function setupAdmin(app,db,{clock=Date.now,credential=process.env.ADMIN_CREDENTIAL,production=process.env.NODE_ENV==='production',billing,paymentSettings}={}){
  db.exec(`CREATE TABLE IF NOT EXISTS admin_sessions (token_hash TEXT PRIMARY KEY,expires INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS admin_attempts (ip TEXT NOT NULL,created INTEGER NOT NULL);
  CREATE INDEX IF NOT EXISTS admin_attempts_created ON admin_attempts(created);
@@ -32,8 +32,11 @@ export function setupAdmin(app,db,{clock=Date.now,credential=process.env.ADMIN_C
   const downloads=start=>Number(db.prepare('SELECT COALESCE(SUM(count),0) n FROM download_days WHERE day>=?').get(start).n);
   res.json({users:{total:Number(db.prepare('SELECT COUNT(*) n FROM users').get().n),today:count('users','created',today),week:count('users','created',week),month:count('users','created',month)},downloads:{total:downloads(0),today:downloads(today),week:downloads(week),month:downloads(month)}});
  });
- app.get('/api/admin/clients',auth,(req,res)=>{const page=Math.max(1,Math.min(100000,Number.parseInt(req.query.page,10)||1)),q=typeof req.query.q==='string'?req.query.q.trim().slice(0,254):'',query='%'+q.replace(/[\\%_]/g,'\\$&')+'%';const total=Number(db.prepare("SELECT COUNT(*) n FROM users WHERE email LIKE ? ESCAPE '\\'").get(query).n);const users=db.prepare(`SELECT u.email,u.created,u.last_seen,
+ app.get('/api/admin/clients',auth,(req,res)=>{const page=Math.max(1,Math.min(100000,Number.parseInt(req.query.page,10)||1)),q=typeof req.query.q==='string'?req.query.q.trim().slice(0,254):'',query='%'+q.replace(/[\\%_]/g,'\\$&')+'%';const total=Number(db.prepare("SELECT COUNT(*) n FROM users WHERE email LIKE ? ESCAPE '\\'").get(query).n);const users=db.prepare(`SELECT u.id,u.email,u.created,u.last_seen,
  (SELECT COUNT(*) FROM account_assets a WHERE a.user_id=u.id AND json_extract(a.data,'$.kind') IN ('signature','stamp')) signatures,
  (SELECT COUNT(*) FROM account_assets a WHERE a.user_id=u.id AND json_extract(a.data,'$.kind')='text') texts
- FROM users u WHERE u.email LIKE ? ESCAPE '\\' ORDER BY u.created DESC LIMIT 50 OFFSET ?`).all(query,(page-1)*50);res.json({users,total,page,pages:Math.ceil(total/50)})});
+ FROM users u WHERE u.email LIKE ? ESCAPE '\\' ORDER BY u.created DESC LIMIT 50 OFFSET ?`).all(query,(page-1)*50).map(u=>({...u,billing:billing?.state(u.id)}));res.json({users,total,page,pages:Math.ceil(total/50)})});
+ if(billing)app.post('/api/admin/clients/:id/billing',auth,(req,res)=>{if(!db.prepare('SELECT 1 FROM users WHERE id=?').get(req.params.id))return res.status(404).json({error:'Пользователь не найден.'});const body=req.body||{};if(body.balance===undefined&&body.plan===undefined&&body.resolveRefunds!==true)return res.status(400).json({error:'Укажите баланс или тариф.'});try{return res.json(billing.adjust(req.params.id,{balance:body.balance,plan:body.plan,resolveRefunds:body.resolveRefunds}))}catch(e){return res.status(400).json({error:e.message})}});
+ if(paymentSettings){app.get('/api/admin/payment-settings',auth,(_req,res)=>{const settings=paymentSettings.get();res.json({publicId:settings?.publicId||'',configured:!!settings})});app.put('/api/admin/payment-settings',auth,(req,res)=>{try{res.json(paymentSettings.save(req.body||{}))}catch(e){res.status(400).json({error:e.message})}})}
+ return {auth,origin};
 }

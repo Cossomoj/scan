@@ -54,4 +54,5 @@ export function setupAccounts(app,db,{dataDir,sendMail,production=process.env.NO
  });
  app.delete('/api/account/assets/:id',requireSession,(req,res)=>{db.prepare('DELETE FROM account_assets WHERE user_id=? AND id=?').run(req.user.id,req.params.id);res.json({ok:true})});
  const cleanup=()=>{const time=clock();db.prepare('DELETE FROM account_codes WHERE expires<?').run(time);db.prepare('DELETE FROM account_sessions WHERE expires<?').run(time);db.prepare('DELETE FROM account_rate WHERE created<?').run(time-86400000)};cleanup();setInterval(cleanup,3600000).unref();
+ return {session,requireSession,sameOrigin};
 }
