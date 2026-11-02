@@ -35,15 +35,12 @@ jobs:
       - name: Deploy through restricted SSH key
         env:
           DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
           set -eu
           test -n "$DEPLOY_KEY"
-          test -n "$KNOWN_HOSTS"
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
-          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' '92.63.101.127 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJSjbus66za62kqD8VU1oiRPMGP+5/0TEmIz0sov/232' > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
-          git archive --format=tar.gz HEAD | ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes root@185.196.41.131
-
+          git archive --format=tar.gz HEAD | ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes root@92.63.101.127

@@ -8,7 +8,7 @@ web
 
 ## Product Purpose
 
-A Russian-language PDF signing and filling service at zapdf.ru. The previous gamelife.shop address stays available during migration so existing local browser data and signing links remain accessible.
+A Russian-language PDF signing and filling service at конторка.рф. The previous zapdf.ru and gamelife.shop addresses remain available so existing local browser data and signing links remain accessible.
 
 ## Users
 
@@ -22,7 +22,7 @@ Invitations create separate links for up to ten sequential signers and upload th
 
 ## Brand Commitments
 
-Name: Конторка. Clear everyday Russian. Use the supplied brand identity: blue #0B57D0, graphite #182028, light blue #EAF2FF, white, and Inter. The public domain remains zapdf.ru. Retain the original colours in user documents and signatures. Editor and invitation behavior must continue working.
+Name: Конторка. Clear everyday Russian. Use the supplied brand identity: blue #0B57D0, graphite #182028, light blue #EAF2FF, white, and Inter. The public domain is конторка.рф. Retain the original colours in user documents and signatures. Editor and invitation behavior must continue working.
 
 ## Evidence on Hand
 

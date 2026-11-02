@@ -1,7 +1,11 @@
-zapdf.ru, www.zapdf.ru, gamelife.shop, www.gamelife.shop {
+xn--80ataleboo.xn--p1ai {
   encode zstd gzip
   request_body {
     max_size 54MB
   }
   reverse_proxy app:3000
+}
+
+www.xn--80ataleboo.xn--p1ai {
+  redir https://xn--80ataleboo.xn--p1ai{uri} permanent
 }
