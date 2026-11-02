@@ -17,7 +17,7 @@ test('background removal leaves dark ink visible and makes white transparent',()
  assert.equal(data[3],0);assert.equal(data[7],255);
 });
 
-test('removes a grey rule and tinted paper while preserving blue and black ink',()=>{
+test('removes tinted paper but keeps a grey rule unless rule removal is requested',()=>{
  const width=120,height=70,data=new Uint8ClampedArray(width*height*4);
  const pixel=(x,y,r,g,b,a=255)=>data.set([r,g,b,a],(y*width+x)*4);
  for(let y=0;y<height;y++)for(let x=0;x<width;x++)pixel(x,y,238,232,222);
@@ -28,10 +28,13 @@ test('removes a grey rule and tinted paper while preserving blue and black ink',
  removePaper({data,width,height},35);
  const alpha=(x,y)=>data[(y*width+x)*4+3];
  assert.equal(alpha(3,3),0,'tinted paper');
- assert.equal(alpha(25,35),0,'grey line');
+ assert.ok(alpha(25,35)>0,'grey line is kept without the line-removal option');
  assert.equal(alpha(51,35),255,'blue ink crossing line');
  assert.equal(alpha(71,20),255,'black ink');
  assert.equal(alpha(1,1),0,'existing transparency');
+ removeSignatureRule({data,width,height});
+ assert.equal(alpha(25,35),0,'grey line removed when requested');
+ assert.equal(alpha(51,35),255,'blue ink crossing line is preserved');
 });
 
 test('zero strength preserves pixels and broad grey marks are not treated as rules',()=>{
@@ -48,6 +51,26 @@ test('background removal keeps coloured strokes on a transparent canvas',()=>{
  assert.equal(data[(10*width+20)*4+3],255,'red stroke');
  assert.equal(data[(20*width+20)*4+3],255,'blue stroke');
  assert.equal(data[(5*width+5)*4+3],0,'transparent background');
+});
+
+test('light grey rules are kept by background cleanup and removed by the option',()=>{
+ const width=160,height=80,data=new Uint8ClampedArray(width*height*4).fill(255);
+ for(let x=5;x<155;x++)for(let y=39;y<42;y++)data.set([185,185,185,255],(y*width+x)*4);
+ removePaper({data,width,height},35);
+ assert.ok(data[(40*width+25)*4+3]>0,'line remains before checkbox');
+ removeSignatureRule({data,width,height});
+ assert.equal(data[(40*width+25)*4+3],0,'line disappears after checkbox');
+});
+
+test('a pale rule remains visible at every background strength until opted in',()=>{
+ const width=160,height=80,original=new Uint8ClampedArray(width*height*4).fill(255);
+ for(let x=5;x<155;x++)for(let y=39;y<42;y++)original.set([215,215,215,255],(y*width+x)*4);
+ for(const strength of [0,35,57,100]){
+  const data=original.slice();removePaper({data,width,height},strength);
+  assert.ok(data[(40*width+25)*4+3]>0,`line is visible at ${strength}%`);
+  removeSignatureRule({data,width,height});
+  assert.equal(data[(40*width+25)*4+3],0,`checkbox removes line at ${strength}%`);
+ }
 });
 
 test('optional rule removal removes black line and keeps ink crossing it',()=>{
@@ -90,4 +113,12 @@ test('removes a rule split by handwriting when only a short edge remains',()=>{
  assert.equal(alpha(350,149),255,'first coloured stroke preserved');
  assert.equal(alpha(395,149),255,'second coloured stroke preserved');
  assert.equal(alpha(85,70),255,'unrelated short stroke preserved');
+});
+
+test('a textured light background does not hide a darker rule',()=>{
+ const width=200,height=100,data=new Uint8ClampedArray(width*height*4);
+ for(let y=0;y<height;y++)for(let x=0;x<width;x++){const v=(Math.floor(x/5)+Math.floor(y/5))%2?224:255;data.set([v,v,v,255],(y*width+x)*4)}
+ for(let x=100;x<width;x++)for(let y=49;y<52;y++)data.set([35,35,35,255],(y*width+x)*4);
+ removeSignatureRule({data,width,height});
+ assert.equal(data[(50*width+180)*4+3],0,'dark rule on textured background removed');
 });

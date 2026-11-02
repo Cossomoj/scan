@@ -20,23 +20,32 @@ export function removePaper(imageData,strength){
   // its coloured strokes would mistake the ink itself for the background.
   const paper=count<d.length/8?[255,255,255]:hist.map(h=>{let total=0;for(let v=0;v<256;v++){total+=h[v];if(total>=count*.9)return v}return 255});
   const threshold=8+amount*1.2;
-  // Thin, long grey printed rules are background, even if darker than the paper.
-  // Restrict this to narrow horizontal bands so that broad grey ink is retained.
-  const lineRows=new Uint8Array(height||0);
-  if(width&&height&&width>=30){
-    const candidates=new Uint8Array(height),gapLimit=Math.max(2,Math.floor(width*.02));
-    for(let y=0;y<height;y++){let start=-1,last=-1;for(let x=0;x<=width;x++){
-      const i=(y*width+x)*4,r=d[i],g=d[i+1],b=d[i+2],max=Math.max(r,g,b),min=Math.min(r,g,b);
-      const grey=x<width&&d[i+3]>128&&min>=65&&max<230&&max-min<=18;
-      if(grey){if(start<0)start=x;last=x}
-      if(start>=0&&(x===width||x-last>gapLimit)){if(last-start+1>=Math.max(25,width*.35))candidates[y]=1;start=-1;last=-1}
-    }}
-    for(let y=0;y<height;){if(!candidates[y]){y++;continue}let end=y+1;while(end<height&&candidates[end])end++;if(end-y<=Math.max(3,Math.ceil(height*.04)))lineRows.fill(1,y,end);y=end}
+  // Protect narrow printed rules from the background slider. Removing them is
+  // a separate, explicit choice in the signature editor.
+  const protectedRows=new Uint8Array(height||0),protectedSpans=Array.from({length:height||0},()=>[]);
+  if(width>=30&&height>=6){
+    const candidates=new Uint8Array(height),gap=Math.max(2,Math.floor(width*.05));
+    const minimum=Math.max(25,Math.round(width*.35)),edgeMinimum=Math.max(25,Math.round(width*.10)),edgeMargin=Math.max(2,Math.ceil(width*.01));
+    for(let y=0;y<height;y++){
+      let start=-1,last=-1;
+      for(let x=0;x<=width;x++){
+        const i=(y*width+x)*4,r=d[i],g=d[i+1],b=d[i+2],max=Math.max(r,g,b),min=Math.min(r,g,b);
+        const contrast=Math.max(paper[0]-r,paper[1]-g,paper[2]-b);
+        const rule=x<width&&d[i+3]>50&&max<230&&max-min<=24&&contrast>=12;
+        if(rule){if(start<0)start=x;last=x}
+        if(start>=0&&(x===width||x-last>gap)){
+          const length=last-start+1,atEdge=start<edgeMargin||last>=width-edgeMargin;
+          if(length>=minimum||(atEdge&&length>=edgeMinimum)){candidates[y]=1;protectedSpans[y].push([start,last])}
+          start=-1;last=-1;
+        }
+      }
+    }
+    for(let y=0;y<height;){if(!candidates[y]){y++;continue}let end=y+1;while(end<height&&candidates[end])end++;if(end-y<=Math.max(3,Math.ceil(height*.035)))protectedRows.fill(1,y,end);y=end}
   }
   for(let i=0;i<d.length;i+=4){
     const difference=Math.max(paper[0]-d[i],paper[1]-d[i+1],paper[2]-d[i+2]);
     let opacity=Math.min(1,Math.max(0,(difference-threshold*.35)/(threshold*.65)));
-    if(width&&lineRows[Math.floor(i/4/width)]){const max=Math.max(d[i],d[i+1],d[i+2]),min=Math.min(d[i],d[i+1],d[i+2]);if(min>=65&&max<230&&max-min<=18)opacity*=Math.max(0,1-amount/35)}
+    if(width&&protectedRows[Math.floor(i/4/width)]){const x=(i/4)%width,y=Math.floor(i/4/width),max=Math.max(d[i],d[i+1],d[i+2]),min=Math.min(d[i],d[i+1],d[i+2]);if(max<230&&max-min<=24&&difference>=12&&protectedSpans[y].some(([left,right])=>x>=left&&x<=right))opacity=1}
     d[i+3]=Math.round(d[i+3]*opacity);
   }
   return imageData;
@@ -47,15 +56,18 @@ export function removePaper(imageData,strength){
 export function removeSignatureRule(imageData){
   const {data:d,width,height}=imageData;
   if(!width||!height||width<30||height<6)return imageData;
-  const neutral=(x,y)=>{if(x<0||x>=width||y<0||y>=height)return false;const i=(y*width+x)*4,r=d[i],g=d[i+1],b=d[i+2];return d[i+3]>50&&Math.max(r,g,b)<165&&Math.max(r,g,b)-Math.min(r,g,b)<=24};
+  const neutral=(x,y,limit)=>{if(x<0||x>=width||y<0||y>=height)return false;const i=(y*width+x)*4,r=d[i],g=d[i+1],b=d[i+2];return d[i+3]>50&&Math.max(r,g,b)<limit&&Math.max(r,g,b)-Math.min(r,g,b)<=24};
   const ruleFringe=(x,y)=>{const i=(y*width+x)*4,r=d[i],g=d[i+1],b=d[i+2];return d[i+3]>30&&Math.max(r,g,b)<230&&Math.max(r,g,b)-Math.min(r,g,b)<=24};
   const ink=(x,y)=>{if(x<0||x>=width||y<0||y>=height)return false;const i=(y*width+x)*4;return d[i+3]>65&&Math.min(d[i],d[i+1],d[i+2])<190};
+  // Detect dark ink first so that a textured/light-grey background cannot
+  // merge every row into one large band and hide a darker printed line.
+  for(const limit of [165,230]){
   const candidates=new Uint8Array(height),spans=Array.from({length:height},()=>[]),gap=Math.max(2,Math.floor(width*.05)),minimum=Math.max(25,Math.round(width*.35));
   const edgeMargin=Math.max(2,Math.ceil(width*.01)),edgeMinimum=Math.max(25,Math.round(width*.10));
   for(let y=0;y<height;y++){
     let start=-1,last=-1;
     for(let x=0;x<=width;x++){
-      if(x<width&&neutral(x,y)){if(start<0)start=x;last=x}
+      if(x<width&&neutral(x,y,limit)){if(start<0)start=x;last=x}
       if(start>=0&&(x===width||x-last>gap)){
         const length=last-start+1,atEdge=start<edgeMargin||last>=width-edgeMargin;
         if(length>=minimum||(atEdge&&length>=edgeMinimum)){candidates[y]=1;spans[y].push([start,last])}
@@ -88,6 +100,7 @@ export function removeSignatureRule(imageData){
       }
     }
     y=end;
+  }
   }
   return imageData;
 }
