@@ -1,0 +1,21 @@
+/* The first screen explains the full document workflow while keeping upload close. */
+.landing .home-hero{grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:clamp(40px,6vw,96px);padding-block:68px 76px}
+.landing .home-hero .home-intro h1{font-size:clamp(44px,4.65vw,66px);line-height:1.1;letter-spacing:-.04em;margin:0 0 24px;font-weight:750}
+.landing .home-hero .home-intro h1 span{color:#0b57d0}
+.landing .home-hero .home-intro>p{max-width:500px;margin:0;font-size:17px;line-height:1.65;color:#52647a}
+.home-benefits{display:grid;gap:12px;margin:26px 0 30px;padding:0;list-style:none;color:#344c68;font-size:14px;line-height:1.45}
+.home-benefits li{display:flex;align-items:center;gap:10px}.home-benefits svg{width:18px;height:18px;flex:none;color:#0b57d0}
+.landing .home-hero-action{min-height:54px;padding-inline:21px;gap:28px}
+.landing .home-hero .home-upload{padding:29px 30px 0;border:1px dashed #9cbcf3;border-radius:16px;background:#f3f7fd}
+.landing .home-hero .home-upload.is-dragging{background:#e6f0ff;border-color:#0b57d0}
+.landing .home-hero .home-upload-icon{display:grid;place-items:center;width:52px;height:52px;margin:0 auto 15px;border-radius:14px;background:#e4efff;color:#0b57d0}
+.landing .home-hero .home-upload h2{margin-bottom:7px;font-size:20px}.landing .home-hero .home-upload>p{font-size:14px;color:#52647a;margin-bottom:20px}
+.landing .home-hero .home-upload .home-button{min-height:50px;background:#fff;border:1px solid #a7c5f1;color:#0b57d0}
+.landing .home-hero .home-upload .home-button:hover:not(:disabled){background:#eaf2ff}
+.home-upload-formats{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:16px 0 20px}
+.home-upload-formats span{padding:5px 8px;border:1px solid #d5e3f4;border-radius:6px;background:#fff;color:#415b7a;font-size:11px;font-weight:650;line-height:1.2}
+.landing .home-hero .home-example-link{border-color:#d4e3f7;padding-block:12px}
+@media(max-width:1100px){.landing .home-hero{gap:40px}.landing .home-hero .home-intro h1{font-size:clamp(42px,5vw,57px)}}
+@media(max-width:800px){.landing .home-hero{grid-template-columns:1fr 1fr;gap:24px;padding-block:42px 48px}.landing .home-hero .home-intro h1{font-size:clamp(32px,4.4vw,36px)}.landing .home-hero .home-intro>p{font-size:15px}.home-benefits{font-size:13px;gap:10px;margin:22px 0 24px}.landing .home-hero .home-upload{padding:24px 20px 0}.home-upload-formats{gap:5px}.home-upload-formats span{font-size:10px}}
+@media(max-width:600px){.landing .home-hero{grid-template-columns:1fr;gap:28px;padding-block:30px 46px}.landing .home-hero .home-intro h1{font-size:clamp(27px,9vw,48px);line-height:1.12;margin-bottom:18px}.landing .home-hero .home-intro>p{font-size:15px;line-height:1.6}.home-benefits{gap:9px;margin:20px 0 24px}.landing .home-hero-action{width:100%;min-height:52px}.landing .home-hero .home-upload{padding:21px 20px 0}.landing .home-hero .home-upload-icon{display:grid;width:44px;height:44px;margin-bottom:12px}.landing .home-hero .home-upload h2{font-size:18px}.landing .home-hero .home-upload>p{font-size:13px;margin-bottom:14px}.home-upload-formats{margin:13px 0 15px}.landing .home-hero .home-example-link{padding-block:8px}}
+@media(max-width:380px){.landing .home-hero .home-upload .home-button{gap:8px;padding-inline:11px;font-size:13px!important}}

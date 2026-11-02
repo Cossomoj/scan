@@ -5,6 +5,7 @@ import './landing.css';
 import './footer.css';
 import './landing-demo.css';
 import './landing-features.css';
+import './landing-hero.css';
 
 function Glyph({name, ...props}) {
   const paths = {
@@ -111,7 +112,7 @@ function FeatureGallery(){
 }
 
 const questions = [
-  ['Нужно регистрироваться или платить?', 'Нет. Откройте PDF, внесите изменения и скачайте результат. Для работы с документом аккаунт и оплата не нужны.'],
+  ['Нужно регистрироваться или платить?', 'Нет. Откройте документ, внесите изменения и скачайте результат в PDF. Для работы с документом аккаунт и оплата не нужны.'],
   ['Как добавить свою подпись или печать?', 'В редакторе нажмите «Подпись / печать». Нарисуйте подпись мышью или пальцем либо загрузите изображение PNG, JPG, WebP или SVG. После добавления можно убрать светлый фон, изменить размер и наклон.'],
   ['Можно просто заполнить анкету текстом?', 'Да. Нажмите «Добавить текст», выберите место на странице и печатайте. Сохранять шаблон не нужно. Часто используемый текст можно отдельно сохранить в «Мои тексты». В скачанном PDF добавленный текст будет изображением, поэтому поиск по нему не работает. Исходный текст PDF сервис не редактирует.'],
   ['Где хранится мой документ?', 'Когда вы заполняете и подписываете PDF сами, он обрабатывается в вашем браузере. Без входа подписи и тексты сохраняются в браузере, а после входа — в аккаунте на сервере. Для приглашения других документ загружается на сервер и хранится 7 дней.'],
@@ -125,24 +126,29 @@ export default function Landing({onChoose,onDropFile,onExample,busy,error}) {
   const choose=mode=>{setDropError('');onChoose(mode)};
   return <div className="landing">
     <a className="home-skip" href="#main">Перейти к содержимому</a>
-    <header className="home-header"><Brand/><nav aria-label="Главное меню"><a href="#how">Как это работает</a><a href="#questions">Вопросы</a></nav><AccountButton/><button className="home-header-action" disabled={busy} onClick={()=>choose('self')}>Открыть PDF <Glyph name="arrow"/></button></header>
+    <header className="home-header"><Brand/><nav aria-label="Главное меню"><a href="#how">Как это работает</a><a href="#questions">Вопросы</a></nav><AccountButton/><button className="home-header-action" disabled={busy} onClick={()=>choose('self')}>Открыть документ <Glyph name="arrow"/></button></header>
     <main id="main">
       <section className="home-hero" aria-labelledby="home-title">
-        <div className="home-intro"><h1 id="home-title">Ваш PDF.<br/>Ваша <span>подпись.</span></h1><p>Заполняйте и подписывайте документы онлайн.<br className="desktop-break"/> Без принтера, сканера и лишних действий.</p><div className="home-assurances"><span><Glyph name="check"/> Бесплатно</span><span><Glyph name="check"/> Без регистрации</span></div></div>
+        <div className="home-intro">
+          <h1 id="home-title">Подписывайте<br/><span>документы онлайн.</span></h1>
+          <p>Заполните документ, добавьте подпись или печать и скачайте готовый PDF.</p>
+          <ul className="home-benefits"><li><Glyph name="check"/>PDF, Word, Excel и фотографии</li><li><Glyph name="check"/>Без принтера и сканера</li><li><Glyph name="check"/>Бесплатно и без регистрации</li></ul>
+          <button className="home-button home-hero-action" disabled={busy} onClick={()=>choose('self')}>Подписать документ <Glyph name="arrow"/></button>
+        </div>
         <div className={'home-upload '+(dragging?'is-dragging':'')} onDragEnter={e=>{e.preventDefault();if(e.dataTransfer.types.includes('Files'))setDragging(true)}} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect=busy?'none':'copy'}} onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragging(false)}} onDrop={onDrop} aria-busy={busy}>
           <div className="home-upload-icon"><Glyph name="upload" width="30" height="30"/></div><h2>{busy?'Открываем документ…':dragging?'Отпустите файл здесь':'Начните с документа'}</h2><p>Перетащите файл сюда<br/>{' '}или выберите его на устройстве</p>
-          <button className="home-button" disabled={busy} onClick={()=>choose('self')}><Glyph name="plus"/>{busy?'Подождите…':'Открыть документ'}<Glyph name="arrow"/></button>
-          <small>PDF, фото, Word, Excel · до 50 МБ</small>
+          <button className="home-button" disabled={busy} onClick={()=>choose('self')}><Glyph name="plus"/>{busy?'Подождите…':'Выбрать документ'}<Glyph name="arrow"/></button>
+          <div className="home-upload-formats" aria-label="Поддерживаемые форматы"><span>PDF</span><span>Word</span><span>Excel</span><span>JPG · PNG</span><span>до 50 МБ</span></div>
           <div className="home-example-link"><button className="home-text-action" disabled={busy} onClick={onExample}>Нет файла? Открыть учебный PDF <Glyph name="arrow"/></button></div>
           {(error||dropError)&&<p className="home-error" role="alert">{dropError||error}</p>}
         </div>
       </section>
       <EditorDemo onExample={onExample} busy={busy}/>
       <FeatureGallery/>
-      <section className="home-how" id="how" aria-labelledby="how-title"><div className="home-section-intro"><h2 id="how-title">Три шага.<br/>И документ готов.</h2><p>Заявление, анкета или договор —<br/>всё делается в одном окне.</p></div><ol className="home-steps"><li><span>1</span><div><h3>Откройте PDF</h3><p>Выберите файл на компьютере или телефоне. Страницы появятся в редакторе.</p></div></li><li><span>2</span><div><h3>Добавьте нужное</h3><p>Подпись, печать, текст или галочку. Перемещайте элементы и меняйте их размер.</p></div></li><li><span>3</span><div><h3>Скачайте результат</h3><p>Нажмите «Скачать PDF». Документ с вашими изменениями сохранится на устройство.</p></div></li></ol></section>
+      <section className="home-how" id="how" aria-labelledby="how-title"><div className="home-section-intro"><h2 id="how-title">Три шага.<br/>И документ готов.</h2><p>Заявление, анкета или договор —<br/>всё делается в одном окне.</p></div><ol className="home-steps"><li><span>1</span><div><h3>Откройте документ</h3><p>Выберите файл на компьютере или телефоне. Страницы появятся в редакторе.</p></div></li><li><span>2</span><div><h3>Добавьте нужное</h3><p>Подпись, печать, текст или галочку. Перемещайте элементы и меняйте их размер.</p></div></li><li><span>3</span><div><h3>Скачайте результат</h3><p>Нажмите «Скачать PDF». Документ с вашими изменениями сохранится на устройство.</p></div></li></ol></section>
       <section className="home-more" aria-label="Дополнительные возможности"><div className="home-local"><Glyph name="shield" width="34" height="34"/><h2>Ваш файл.<br/>Ваш браузер.</h2><p>При самостоятельном заполнении и подписании PDF обрабатывается на вашем устройстве.</p><p className="home-fine-print">Скачайте готовый документ перед закрытием страницы.</p></div><div className="home-invite"><Glyph name="link" width="34" height="34"/><h2>Нужна подпись<br/>другого человека?</h2><p>Укажите участников и передайте каждому личную ссылку. Они смогут подписать документ по очереди.</p><button className="home-text-action" disabled={busy} onClick={()=>choose('others')}>Пригласить подписантов <Glyph name="arrow"/></button><small>Для этого PDF загружается на сервер на 7 дней.</small></div></section>
       <section className="home-faq" id="questions" aria-labelledby="questions-title"><h2 id="questions-title">Всё, что хочется уточнить</h2><div>{questions.map(([q,a],i)=><details key={q} id={'question-'+i}><summary>{q}<Glyph name="plus"/></summary><p>{a}</p></details>)}</div></section>
-      <section className="home-bottom"><h2>Осталось только подписать.</h2><button className="home-button" disabled={busy} onClick={()=>choose('self')}>Открыть мой PDF <Glyph name="arrow"/></button></section>
+      <section className="home-bottom"><h2>Осталось только подписать.</h2><button className="home-button" disabled={busy} onClick={()=>choose('self')}>Открыть документ <Glyph name="arrow"/></button></section>
     </main>
     <footer className="home-footer">
       <div className="footer-grid">
