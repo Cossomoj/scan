@@ -33,12 +33,24 @@ export function setupBilling(db,{clock=Date.now}={}) {
   order_id TEXT PRIMARY KEY REFERENCES billing_orders(id), user_id TEXT NOT NULL REFERENCES users(id),
   plan TEXT NOT NULL, created INTEGER NOT NULL
  );
+ CREATE TABLE IF NOT EXISTS billing_payment_days (
+  day INTEGER PRIMARY KEY, count INTEGER NOT NULL, amount INTEGER NOT NULL
+ );
+ CREATE TABLE IF NOT EXISTS billing_migrations (name TEXT PRIMARY KEY);
  CREATE TRIGGER IF NOT EXISTS billing_new_user AFTER INSERT ON users BEGIN
   INSERT INTO billing_wallets(user_id,balance) VALUES (NEW.id,1000);
   INSERT INTO billing_ledger(id,user_id,created,kind,amount,detail)
     VALUES ('welcome:' || NEW.id,NEW.id,NEW.created,'welcome',1000,'Бонус при регистрации');
  END;`);
  const transaction=fn=>{db.exec('BEGIN IMMEDIATE');try{const result=fn();db.exec('COMMIT');return result}catch(e){db.exec('ROLLBACK');throw e}};
+ const paymentDay=time=>Math.floor((time+10800000)/86400000)*86400000-10800000;
+ const addPayment=(time,amount)=>db.prepare('INSERT INTO billing_payment_days(day,count,amount) VALUES (?,1,?) ON CONFLICT(day) DO UPDATE SET count=count+1,amount=amount+excluded.amount').run(paymentDay(time),amount);
+ transaction(()=>{
+  if(db.prepare("SELECT 1 FROM billing_migrations WHERE name='payment_days_v1'").get())return;
+  const previous=db.prepare("SELECT o.amount,COALESCE(l.created,o.created) paid_at FROM billing_orders o LEFT JOIN billing_ledger l ON l.user_id=o.user_id AND l.request_id='payment:'||o.id WHERE o.status='paid' AND o.test_mode=0").all();
+  for(const payment of previous)addPayment(payment.paid_at,payment.amount);
+  db.prepare("INSERT INTO billing_migrations(name) VALUES ('payment_days_v1')").run();
+ });
  const ensure=userId=>{db.prepare('INSERT OR IGNORE INTO billing_wallets(user_id) VALUES (?)').run(userId);return db.prepare('SELECT * FROM billing_wallets WHERE user_id=?').get(userId)};
  const state=userId=>{let w=ensure(userId),active=!!(w.plan&&w.expires>clock()&&w.remaining>0);const pending=db.prepare('SELECT COUNT(*) count,COALESCE(SUM(amount),0) amount FROM billing_refunds WHERE user_id=? AND resolved=0 AND test_mode=0').get(userId);if(!active&&!pending.count){const next=db.prepare('SELECT rowid,* FROM billing_plan_queue WHERE user_id=? ORDER BY created,rowid LIMIT 1').get(userId);if(next){const p=PLANS[next.plan];if(!p)throw Error('Некорректный тариф в очереди.');db.prepare('UPDATE billing_wallets SET plan=?,remaining=?,expires=? WHERE user_id=?').run(next.plan,p.documents,clock()+p.days*86400000,userId);db.prepare('DELETE FROM billing_plan_queue WHERE order_id=?').run(next.order_id);w=ensure(userId);active=true}}const queued=db.prepare('SELECT count(*) n FROM billing_plan_queue WHERE user_id=?').get(userId).n;return {balance:w.balance,plan:active?w.plan:null,remaining:active?w.remaining:0,expires:active?w.expires:null,queued,review:pending.count>0,refundPending:pending.amount}};
  const debit=(userId,requestId,fingerprint='')=>transaction(()=>{
@@ -73,7 +85,7 @@ export function setupBilling(db,{clock=Date.now}={}) {
   db.prepare('UPDATE billing_orders SET status=?,transaction_id=? WHERE id=?').run(testMode?'test_paid':'paid',transactionId,id);
   if(testMode)return {repeated:false,testMode:true};
   ensure(userId);if(o.kind==='topup')db.prepare('UPDATE billing_wallets SET balance=balance+? WHERE user_id=?').run(o.amount,userId);else {if(!PLANS[o.kind])throw Error('Неизвестный тариф.');db.prepare('INSERT INTO billing_plan_queue VALUES (?,?,?,?)').run(o.id,userId,o.kind,clock());state(userId)}
-  db.prepare('INSERT INTO billing_ledger VALUES (?,?,?,?,?,?,?)').run(randomUUID(),userId,clock(),o.kind==='topup'?'topup':'plan_purchase',o.kind==='topup'?o.amount:0,o.kind,'payment:'+id);
+  const paidAt=clock();db.prepare('INSERT INTO billing_ledger VALUES (?,?,?,?,?,?,?)').run(randomUUID(),userId,paidAt,o.kind==='topup'?'topup':'plan_purchase',o.kind==='topup'?o.amount:0,o.kind,'payment:'+id);addPayment(paidAt,o.amount);
   return {repeated:false,...state(userId)};
  });
  const getOrder=(id,userId)=>{const o=db.prepare('SELECT id,kind,amount,status FROM billing_orders WHERE id=? AND user_id=?').get(id,userId);return o||null};
