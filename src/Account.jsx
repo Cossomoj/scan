@@ -11,6 +11,7 @@ async function request(path,body){const response=await fetch('/api/account/'+pat
 export function AccountProvider({children}){
  const [user,setUser]=useState(getAccount()),[available,setAvailable]=useState(false),[open,setOpen]=useState(false),[localItems,setLocalItems]=useState([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
  useEffect(()=>subscribeAccount(setUser),[]);
+ useEffect(()=>{if(!open)return;document.body.classList.add('account-dialog-open');return()=>document.body.classList.remove('account-dialog-open')},[open]);
  useEffect(()=>{let alive=true;request('session').then(data=>{if(alive){setAvailable(data.available);setAccount(data.user)}}).catch(()=>{if(alive){setAccount(null);setNotice('Не удалось проверить вход в аккаунт.')}});return()=>{alive=false}},[]);
  useEffect(()=>{let alive=true;setLocalItems([]);if(user)Promise.all([listLocalSignatures(),listSignatures()]).then(([local,remote])=>{if(alive){const known=new Set(remote.map(item=>item.id));setLocalItems(local.filter(item=>!known.has(item.id)))}}).catch(()=>{});return()=>{alive=false}},[user]);
  const logout=async()=>{setBusy(true);setNotice('');try{await request('logout',{});setAccount(null);setOpen(false)}catch(e){setNotice(e.message)}finally{setBusy(false)}};
