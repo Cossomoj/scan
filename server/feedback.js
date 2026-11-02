@@ -55,7 +55,7 @@ export function setupFeedback(app, {sendMail, clock = Date.now} = {}) {
         to: RECIPIENT,
         replyTo: email,
         subject: 'Обратная связь — ' + TOPICS.get(topic),
-        text: 'Тема: ' + TOPICS.get(topic) + '\nПочта для ответа: ' + email + '\nСогласие: предоставлено в форме обратной связи, редакция от 02.11.2026.\nВремя отправки (UTC): ' + new Date(now).toISOString() + '\n\n' + text,
+        text: 'Тема: ' + TOPICS.get(topic) + '\nПочта для ответа: ' + email + '\nСогласие: предоставлено в форме обратной связи, редакция от 03.11.2026.\nВремя отправки (UTC): ' + new Date(now).toISOString() + '\n\n' + text,
       });
       res.json({ok: true});
     } catch {

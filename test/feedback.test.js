@@ -28,7 +28,7 @@ test('feedback validates input, sends to the owner and permits a direct reply', 
   assert.equal(messages[0].replyTo, 'reader@example.com');
   assert.match(messages[0].subject, /Сообщить об ошибке/);
   assert.match(messages[0].text, /Не открывается файл/);
-  assert.match(messages[0].text, /Согласие: предоставлено в форме обратной связи/);
+  assert.match(messages[0].text, /Согласие: предоставлено в форме обратной связи, редакция от 03\.11\.2026/);
   for (let i = 0; i < 4; i++) assert.equal((await send(valid)).status, 200);
   assert.equal((await send(valid)).status, 429);
   assert.equal(messages.length, 5);

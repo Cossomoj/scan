@@ -5,7 +5,7 @@ import './policy.css';
 
 const sections = [
   ['Оператор', <>
-    <p>Оператор персональных данных — самозанятая Виноградская Марина Игоревна, ИНН 553102760700. Сервис: конторка.рф. Контактная почта: <a href="mailto:support@xn--80ataleboo.xn--p1ai">support@конторка.рф</a>.</p>
+    <p>Оператор персональных данных — индивидуальный предприниматель Кучер Максим Григорьевич, ИНН 545328562961, ОГРНИП 326010000014347. Сервис: конторка.рф. Контактная почта: <a href="mailto:support@xn--80ataleboo.xn--p1ai">support@конторка.рф</a>.</p>
   </>],
   ['Предмет и способ предоставления согласия', <>
     <p>Согласие относится к обработке персональных данных, которые человек указывает при отправке обращения через форму обратной связи на сайте конторка.рф.</p>
@@ -47,7 +47,7 @@ export default function Consent() {
     <a className="policy-skip" href="#consent-content">Перейти к содержанию</a>
     <header className="policy-header"><Brand className="policy-brand"/><a className="policy-home-link" href="/">На главную <span aria-hidden="true">→</span></a></header>
     <main id="consent-content" className="policy-main">
-      <div className="policy-title"><h1>Согласие на обработку персональных данных</h1><p>Редакция от <time dateTime="2026-11-02">2 ноября 2026 г.</time></p></div>
+      <div className="policy-title"><h1>Согласие на обработку персональных данных</h1><p>Редакция от <time dateTime="2026-11-03">3 ноября 2026 г.</time></p></div>
       <p className="consent-intro">Отмечая флажок согласия и отправляя форму обратной связи, пользователь даёт согласие на обработку указанных в обращении персональных данных для его рассмотрения и ответа. Условия согласия приведены ниже.</p>
       <nav className="policy-toc consent-toc" aria-labelledby="consent-toc-title"><h2 id="consent-toc-title">Содержание</h2><ol>{sections.map(([title],i)=><li key={title}><a href={'#section-'+(i+1)}>{title}</a></li>)}</ol></nav>
       <div className="policy-sections">{sections.map(([title,body],i)=><section className="policy-section" key={title} id={'section-'+(i+1)}><h2>{i+1}. {title}</h2><div className="policy-body">{body}</div></section>)}</div>

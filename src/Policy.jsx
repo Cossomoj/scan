@@ -6,7 +6,7 @@ import './policy.css';
 const sections = [
   ['Общие положения', <>
     <p>Эта политика объясняет, какие персональные данные могут обрабатываться при использовании сервиса «Конторка» на сайте конторка.рф, для чего они нужны и как связаться с оператором.</p>
-    <p><strong>Оператор:</strong> самозанятая Виноградская Марина Игоревна, ИНН 553102760700. Контактная почта: <a href="mailto:support@xn--80ataleboo.xn--p1ai">support@конторка.рф</a>.</p>
+    <p><strong>Оператор:</strong> индивидуальный предприниматель Кучер Максим Григорьевич, ИНН 545328562961, ОГРНИП 326010000014347. Контактная почта: <a href="mailto:support@xn--80ataleboo.xn--p1ai">support@конторка.рф</a>.</p>
     <p>Политика применяется к посетителям сайта, пользователям редактора, владельцам аккаунтов и людям, которые обращаются в поддержку или подписывают документ по ссылке.</p>
   </>],
   ['Основные термины', <>
@@ -72,7 +72,7 @@ const sections = [
     <p>Политика может обновляться при изменении функций сервиса или требований законодательства. Актуальная редакция публикуется на этой странице с датой обновления.</p>
   </>],
   ['Контактная информация', <>
-    <p>Вопросы о персональных данных и работе сервиса можно направить оператору: самозанятая Виноградская Марина Игоревна, ИНН 553102760700.</p>
+    <p>Вопросы о персональных данных и работе сервиса можно направить оператору: индивидуальный предприниматель Кучер Максим Григорьевич, ИНН 545328562961, ОГРНИП 326010000014347.</p>
     <p>Электронная почта: <a href="mailto:support@xn--80ataleboo.xn--p1ai">support@конторка.рф</a>.</p>
   </>],
 ];
@@ -86,7 +86,7 @@ export default function Policy() {
     <a className="policy-skip" href="#policy-content">Перейти к содержанию</a>
     <header className="policy-header"><Brand className="policy-brand"/><a className="policy-home-link" href="/">На главную <span aria-hidden="true">→</span></a></header>
     <main id="policy-content" className="policy-main">
-      <div className="policy-title"><h1>Политика конфиденциальности</h1><p>Редакция от <time dateTime="2026-11-02">2 ноября 2026 г.</time></p></div>
+      <div className="policy-title"><h1>Политика конфиденциальности</h1><p>Редакция от <time dateTime="2026-11-03">3 ноября 2026 г.</time></p></div>
       <nav className="policy-toc" aria-labelledby="policy-toc-title"><h2 id="policy-toc-title">Содержание</h2><ol>{sections.map(([title],i)=><li key={title}><a href={'#section-'+(i+1)}>{title}</a></li>)}</ol></nav>
       <div className="policy-sections">{sections.map(([title,body],i)=><section className="policy-section" key={title} id={'section-'+(i+1)}><h2>{i+1}. {title}</h2><div className="policy-body">{body}</div></section>)}</div>
     </main>
