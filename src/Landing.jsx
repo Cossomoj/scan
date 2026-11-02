@@ -16,8 +16,6 @@ function Glyph({name, ...props}) {
     text: <><path d="M4 6V4h16v2M12 4v16M8 20h8"/></>,
     clean: <><path d="m12 3 2 6 6 2-6 2-2 6-2-6-6-2 6-2zM20 17v4m-2-2h4"/></>,
     check: <path d="m5 12 4 4L19 6"/>,
-    shield: <><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6zM8 12l3 3 5-6"/></>,
-    link: <><path d="m10 13 4-4M8 16l-1 1a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0M16 8l1-1a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0" transform="translate(1 1) scale(.9)"/></>,
     plus: <path d="M12 5v14M5 12h14"/>,
     reset: <><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/></>,
     move: <><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></>,
@@ -146,7 +144,6 @@ export default function Landing({onChoose,onDropFile,onExample,busy,error}) {
       <EditorDemo onExample={onExample} busy={busy}/>
       <FeatureGallery/>
       <section className="home-how" id="how" aria-labelledby="how-title"><div className="home-section-intro"><h2 id="how-title">Три шага.<br/>И документ готов.</h2><p>Заявление, анкета или договор —<br/>всё делается в одном окне.</p></div><ol className="home-steps"><li><span>1</span><div><h3>Откройте документ</h3><p>Выберите файл на компьютере или телефоне. Страницы появятся в редакторе.</p></div></li><li><span>2</span><div><h3>Добавьте нужное</h3><p>Подпись, печать, текст или галочку. Перемещайте элементы и меняйте их размер.</p></div></li><li><span>3</span><div><h3>Скачайте результат</h3><p>Нажмите «Скачать PDF». Документ с вашими изменениями сохранится на устройство.</p></div></li></ol></section>
-      <section className="home-more" aria-label="Дополнительные возможности"><div className="home-local"><Glyph name="shield" width="34" height="34"/><h2>Ваш файл.<br/>Ваш браузер.</h2><p>При самостоятельном заполнении и подписании PDF обрабатывается на вашем устройстве.</p><p className="home-fine-print">Скачайте готовый документ перед закрытием страницы.</p></div><div className="home-invite"><Glyph name="link" width="34" height="34"/><h2>Нужна подпись<br/>другого человека?</h2><p>Укажите участников и передайте каждому личную ссылку. Они смогут подписать документ по очереди.</p><button className="home-text-action" disabled={busy} onClick={()=>choose('others')}>Пригласить подписантов <Glyph name="arrow"/></button><small>Для этого PDF загружается на сервер на 7 дней.</small></div></section>
       <section className="home-faq" id="questions" aria-labelledby="questions-title"><h2 id="questions-title">Всё, что хочется уточнить</h2><div>{questions.map(([q,a],i)=><details key={q} id={'question-'+i}><summary>{q}<Glyph name="plus"/></summary><p>{a}</p></details>)}</div></section>
       <section className="home-bottom"><h2>Осталось только подписать.</h2><button className="home-button" disabled={busy} onClick={()=>choose('self')}>Открыть документ <Glyph name="arrow"/></button></section>
     </main>
