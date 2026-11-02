@@ -5,9 +5,9 @@ let lastView = '';
 // The editor changes application state without changing the browser URL.
 // Report only fixed virtual paths, never filenames or private signing links.
 export function recordMetrikaView(stage) {
-  if (typeof window.ym !== 'function' || !['home', 'editor', 'policy', 'consent'].includes(stage)) return;
+  if (typeof window.ym !== 'function' || !['home', 'editor', 'policy', 'consent', 'offer', 'details'].includes(stage)) return;
 
-  const url = new URL(stage === 'editor' ? '/editor' : stage === 'policy' ? '/policy' : stage === 'consent' ? '/consent' : '/', window.location.origin);
+  const url = new URL(stage === 'home' ? '/' : '/' + stage, window.location.origin);
   if (stage === 'home') {
     const current = new URL(window.location.href);
     for (const key of CAMPAIGN_KEYS) {

@@ -185,7 +185,7 @@ export default function Landing({onChoose,onDropFile,onExample,onFeedback,busy,e
         <div className="footer-about"><Brand/><p>Подпись, печать и заполнение документов прямо в браузере.</p><div className="footer-support"><span>Поддержка: <a href="mailto:support@xn--80ataleboo.xn--p1ai">support@конторка.рф</a></span><button type="button" onClick={onFeedback}>Обратная связь <Glyph name="arrow"/></button></div></div>
         <nav className="footer-column" aria-label="Возможности"><h2>Возможности</h2><a href="#how">Все возможности</a>{['Подписать PDF','Подписать Word','Подписать Excel','Поставить печать','Нарисовать подпись'].map(label=><button type="button" key={label} disabled={busy} onClick={()=>choose('self')}>{label}</button>)}</nav>
         <nav className="footer-column" aria-label="Инструменты"><h2>Инструменты</h2>{['Эффект сканера','Подпись без фона','Вырезать подпись со страницы','Добавить текст'].map(label=><button type="button" key={label} disabled={busy} onClick={()=>choose('self')}>{label}</button>)}</nav>
-        <nav className="footer-column" aria-label="Документы"><h2>Документы</h2><a href="/policy">Политика конфиденциальности</a><a href="/consent">Согласие на обработку ПДн</a></nav>
+        <nav className="footer-column" aria-label="Документы"><h2>Документы</h2><a href="/policy">Политика конфиденциальности</a><a href="/consent">Согласие на обработку ПДн</a><a href="/offer">Публичная оферта</a><a href="/details">Реквизиты</a></nav>
       </div>
       <div className="footer-bottom"><span>Визуальная подпись не заменяет квалифицированную электронную подпись.</span><span>© {new Date().getFullYear()} Конторка</span></div>
     </footer>
