@@ -1,0 +1,17 @@
+.landing .home-faq{display:block;padding:14px 0 110px;scroll-margin-top:30px}
+.landing .home-faq .faq-intro,.landing .home-faq .faq-list{width:min(100%,880px);margin-inline:auto}
+.landing .home-faq .faq-intro{margin-bottom:30px}
+.landing .home-faq .faq-intro h2{margin:0;font-size:clamp(30px,3vw,40px);line-height:1.2;letter-spacing:-.03em;font-weight:700}
+.landing .home-faq .faq-intro>p{margin:10px 0 0;color:#52647a;font-size:15px;line-height:1.6}
+.landing .home-faq .faq-list{display:grid;gap:12px}
+.landing .home-faq details,.landing .home-faq details:first-child{margin:0;overflow:hidden;border:1px solid #dce5f1;border-radius:14px;background:#fff;transition:border-color 150ms,background-color 150ms}
+.landing .home-faq details[open]{border-color:#b5cdf0;background:#f9fbff}
+.landing .home-faq summary{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:72px;padding:20px 24px;color:#182028;font-size:15px;line-height:1.45;font-weight:700;cursor:pointer}
+.landing .home-faq summary span{min-width:0}.landing .home-faq summary>svg{width:20px;height:20px;flex:none;color:#0b57d0;transition:transform 180ms ease}
+.landing .home-faq summary:focus-visible{outline:2px solid #0b57d0;outline-offset:-4px;border-radius:10px}
+.landing .home-faq details[open] summary>svg{transform:rotate(45deg)}
+.landing .home-faq details>p{max-width:72ch;margin:0;padding:0 24px 23px;color:#41546c;font-size:14px;line-height:1.75}
+.landing .home-faq details>p strong{color:#182028}.landing .home-faq details>p a{color:#0b57d0;font-weight:650;overflow-wrap:anywhere}
+@media(hover:hover){.landing .home-faq details:hover{border-color:#9cbcf3}.landing .home-faq summary:hover{color:#0b57d0}}
+@media(max-width:600px){.landing .home-faq{padding:8px 0 64px}.landing .home-faq .faq-intro{margin-bottom:22px}.landing .home-faq .faq-intro h2{font-size:30px}.landing .home-faq .faq-intro>p{font-size:14px}.landing .home-faq .faq-list{gap:10px}.landing .home-faq summary{min-height:68px;padding:18px;font-size:14px}.landing .home-faq details>p{padding:0 18px 19px;font-size:13px;line-height:1.7}}
+@media(prefers-reduced-motion:reduce){.landing .home-faq details,.landing .home-faq summary>svg{transition:none}}
