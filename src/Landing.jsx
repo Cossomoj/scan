@@ -148,7 +148,7 @@ const questions = [
   ['Не хватает нужной функции?', <>Расскажите, что вам нужно улучшить или добавить. Напишите нам на <a href="mailto:support@xn--80ataleboo.xn--p1ai">support@конторка.рф</a> — ваше сообщение поможет развивать сервис.</>],
 ];
 
-export default function Landing({onChoose,onDropFile,onExample,busy,error}) {
+export default function Landing({onChoose,onDropFile,onExample,onFeedback,busy,error}) {
   const [dragging,setDragging]=useState(false), [dropError,setDropError]=useState(''), [requestedTool,setRequestedTool]=useState(null);
   const {user,openAccount}=useAccount(),[billing]=useBillingStatus();
   const onDrop=e=>{e.preventDefault();setDragging(false);if(busy)return;const files=e.dataTransfer.files;if(files.length!==1){setDropError('Перетащите один файл. Остальные страницы можно добавить в редакторе.');return}setDropError('');onDropFile(files[0])};
@@ -181,7 +181,7 @@ export default function Landing({onChoose,onDropFile,onExample,busy,error}) {
     </main>
     <footer className="home-footer">
       <div className="footer-grid">
-        <div className="footer-about"><Brand/><p>Подпись, печать и заполнение документов прямо в браузере.</p><a href="#questions">Помощь с документом <Glyph name="arrow"/></a></div>
+        <div className="footer-about"><Brand/><p>Подпись, печать и заполнение документов прямо в браузере.</p><div className="footer-support"><span>Поддержка: <a href="mailto:support@xn--80ataleboo.xn--p1ai">support@конторка.рф</a></span><button type="button" onClick={onFeedback}>Обратная связь <Glyph name="arrow"/></button></div></div>
         <nav className="footer-column" aria-label="Возможности"><h2>Возможности</h2><a href="#how">Все возможности</a>{['Подписать PDF','Подписать Word','Подписать Excel','Поставить печать','Нарисовать подпись'].map(label=><button type="button" key={label} disabled={busy} onClick={()=>choose('self')}>{label}</button>)}</nav>
         <nav className="footer-column" aria-label="Инструменты"><h2>Инструменты</h2>{['Эффект сканера','Подпись без фона','Вырезать подпись со страницы','Добавить текст'].map(label=><button type="button" key={label} disabled={busy} onClick={()=>choose('self')}>{label}</button>)}</nav>
         <nav className="footer-column" aria-label="О документах"><h2>О документах</h2>{[['Форматы файлов',4],['Хранение документов',3],['Электронная подпись',5],['Частые вопросы',null]].map(([label,index])=><a key={label} href={index===null?'#questions':'#question-'+index} onClick={()=>{if(index!==null){const item=document.getElementById('question-'+index);if(item)item.open=true}}}>{label}</a>)}</nav>

@@ -2,6 +2,12 @@
 .landing .home-footer .footer-grid{display:grid;grid-template-columns:1.35fr 1fr 1.15fr 1fr;gap:clamp(28px,4vw,64px);width:100%;align-items:start}
 .landing .home-footer .footer-about .home-brand{font-size:24px}
 .landing .home-footer .footer-about p{max-width:230px;margin:18px 0;color:#52647a;font-size:14px;line-height:1.7}
+.landing .home-footer .footer-support{display:flex;flex-direction:column;align-items:flex-start;gap:9px;color:#52647a;font-size:13px;line-height:1.5}
+.landing .home-footer .footer-support a{color:#0b57d0;text-decoration:none;overflow-wrap:anywhere}
+.landing .home-footer .footer-support button{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0;border:0;background:none;color:#0b57d0;font:inherit;font-weight:650;text-align:left;cursor:pointer}
+.landing .home-footer .footer-support button svg{width:16px;height:16px}
+.landing .home-footer .footer-support :is(a,button):hover{text-decoration:underline;text-underline-offset:4px}
+.landing .home-footer .footer-support :is(a,button):focus-visible{outline:3px solid #8bb8ff;outline-offset:3px}
 .landing .home-footer .footer-about>a:not(.home-brand){display:inline-flex;align-items:center;gap:8px;min-height:36px;color:#0b57d0;font-size:13px;font-weight:650;text-decoration:none}
 .landing .home-footer .footer-about>a svg{width:16px;height:16px}
 .landing .home-footer .footer-column{display:flex;flex-direction:column;align-items:flex-start;gap:12px;min-width:0}

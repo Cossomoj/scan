@@ -11,6 +11,7 @@ import {setupBilling} from './billing.js';
 import {setupPaymentSettings} from './paymentSettings.js';
 import {setupBillingRoutes} from './billingRoutes.js';
 import {setupCloudNotifications,setupCloudOrders} from './cloudRoutes.js';
+import {setupFeedback} from './feedback.js';
 
 const dataDir = resolve(process.env.DATA_DIR || './data');
 mkdirSync(dataDir, { recursive: true, mode: 0o700 });
@@ -29,6 +30,7 @@ setInterval(()=>{const time=Date.now();for(const [key,b] of buckets)if(b.until<=
 app.use('/api/cloudpayments',express.raw({type:'application/x-www-form-urlencoded',limit:'64kb'}));
 app.use(express.json({ limit: '4mb' }));
 const accounts=setupAccounts(app,db,{dataDir});
+setupFeedback(app);
 const billing=setupBilling(db);
 const paymentSettings=setupPaymentSettings(db,dataDir);
 setupCloudNotifications(app,{db,billing,paymentSettings});
