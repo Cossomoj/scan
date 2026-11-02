@@ -41,13 +41,49 @@ export function removePaper(imageData,strength){
   }
   return imageData;
 }
-export function previewImage(img,crop,strength,maxWidth=900){
+// Remove long, thin, neutral rules while keeping coloured ink and dark strokes
+// that continue through the rule. The optional treatment is intentionally
+// conservative: signatures and printed rules can otherwise be indistinguishable.
+export function removeSignatureRule(imageData){
+  const {data:d,width,height}=imageData;
+  if(!width||!height||width<30||height<6)return imageData;
+  const neutral=(x,y)=>{if(x<0||x>=width||y<0||y>=height)return false;const i=(y*width+x)*4,r=d[i],g=d[i+1],b=d[i+2];return d[i+3]>50&&Math.max(r,g,b)<165&&Math.max(r,g,b)-Math.min(r,g,b)<=24};
+  const ink=(x,y)=>{if(x<0||x>=width||y<0||y>=height)return false;const i=(y*width+x)*4;return d[i+3]>65&&Math.min(d[i],d[i+1],d[i+2])<190};
+  const candidates=new Uint8Array(height),spans=Array.from({length:height},()=>[]),gap=Math.max(2,Math.floor(width*.02)),minimum=Math.max(25,Math.round(width*.35));
+  for(let y=0;y<height;y++){
+    let start=-1,last=-1;
+    for(let x=0;x<=width;x++){
+      if(x<width&&neutral(x,y)){if(start<0)start=x;last=x}
+      if(start>=0&&(x===width||x-last>gap)){if(last-start+1>=minimum){candidates[y]=1;spans[y].push([start,last])}start=-1;last=-1}
+    }
+  }
+  const maxBand=Math.max(3,Math.ceil(height*.035));
+  for(let y=0;y<height;){
+    if(!candidates[y]){y++;continue}
+    let end=y+1;while(end<height&&candidates[end])end++;
+    if(end-y<=maxBand){
+      const reach=Math.max(2,Math.min(5,Math.ceil(height*.025)));
+      for(let x=0;x<width;x++){
+        let above=false,below=false;
+        for(let offset=1;offset<=reach;offset++)for(let dx=-1;dx<=1;dx++){
+          if(ink(x+dx,y-offset))above=true;
+          if(ink(x+dx,end-1+offset))below=true;
+        }
+        if(above&&below)continue;
+        for(let row=y;row<end;row++)if(spans[row].some(([left,right])=>x>=left&&x<=right)&&neutral(x,row))d[(row*width+x)*4+3]=0;
+      }
+    }
+    y=end;
+  }
+  return imageData;
+}
+export function previewImage(img,crop,strength,maxWidth=900,removeRule=false){
   const sx=Math.round(crop.x*img.naturalWidth),sy=Math.round(crop.y*img.naturalHeight);
   const sw=Math.max(1,Math.round(crop.w*img.naturalWidth)),sh=Math.max(1,Math.round(crop.h*img.naturalHeight));
   const scale=Math.min(1,maxWidth/sw,700/sh),canvas=document.createElement('canvas');
   canvas.width=Math.max(1,Math.round(sw*scale));canvas.height=Math.max(1,Math.round(sh*scale));
   const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,sx,sy,sw,sh,0,0,canvas.width,canvas.height);
-  const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);ctx.putImageData(removePaper(pixels,strength),0,0);
+  const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);removePaper(pixels,strength);if(removeRule)removeSignatureRule(pixels);ctx.putImageData(pixels,0,0);
   return canvas.toDataURL('image/png');
 }
 export function detectImage(img,square=false){

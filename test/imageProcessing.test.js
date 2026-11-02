@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {findInkBounds,removePaper} from '../src/imageProcessing.js';
+import {findInkBounds,removePaper,removeSignatureRule} from '../src/imageProcessing.js';
 
 test('detects ink and constrains stamp crop to a square in pixels',()=>{
  const width=100,height=60,data=new Uint8ClampedArray(width*height*4).fill(255);
@@ -48,4 +48,27 @@ test('background removal keeps coloured strokes on a transparent canvas',()=>{
  assert.equal(data[(10*width+20)*4+3],255,'red stroke');
  assert.equal(data[(20*width+20)*4+3],255,'blue stroke');
  assert.equal(data[(5*width+5)*4+3],0,'transparent background');
+});
+
+test('optional rule removal removes black line and keeps ink crossing it',()=>{
+ const width=160,height=80,data=new Uint8ClampedArray(width*height*4);
+ const pixel=(x,y,r,g,b,a=255)=>data.set([r,g,b,a],(y*width+x)*4);
+ for(let y=0;y<height;y++)for(let x=0;x<width;x++)pixel(x,y,255,255,255);
+ for(let x=4;x<156;x++)for(let y=39;y<=41;y++)pixel(x,y,18,18,18);
+ for(let y=24;y<56;y++)for(let x=52;x<=55;x++)pixel(x,y,18,18,18);
+ for(let y=25;y<55;y++)for(let x=90;x<=93;x++)pixel(x,y,30,50,130);
+ removePaper({data,width,height},35);removeSignatureRule({data,width,height});
+ const alpha=(x,y)=>data[(y*width+x)*4+3];
+ assert.equal(alpha(20,40),0,'black line removed');
+ assert.equal(alpha(53,40),255,'black stroke crossing preserved');
+ assert.equal(alpha(91,40),255,'blue stroke crossing preserved');
+ assert.equal(alpha(53,30),255,'ink outside line preserved');
+});
+
+test('rule removal leaves short marks and broad filled shapes intact',()=>{
+ const width=120,height=70,data=new Uint8ClampedArray(width*height*4);
+ for(let y=0;y<height;y++)for(let x=0;x<width;x++)data.set([255,255,255,255],(y*width+x)*4);
+ for(let y=12;y<20;y++)for(let x=5;x<115;x++)data.set([20,20,20,255],(y*width+x)*4);
+ for(let x=15;x<35;x++)data.set([10,10,10,255],(45*width+x)*4);
+ const original=data.slice();removeSignatureRule({data,width,height});assert.deepEqual(data,original);
 });
