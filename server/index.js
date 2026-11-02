@@ -10,7 +10,7 @@ import {setupAdmin} from './admin.js';
 import {setupBilling} from './billing.js';
 import {setupPaymentSettings} from './paymentSettings.js';
 import {setupBillingRoutes} from './billingRoutes.js';
-import {setupCloudNotifications,setupCloudOrders} from './cloudRoutes.js';
+import {setupYooKassa} from './yookassaRoutes.js';
 import {setupFeedback} from './feedback.js';
 
 const dataDir = resolve(process.env.DATA_DIR || './data');
@@ -27,16 +27,14 @@ app.use((req, res, next) => { res.set({'X-Content-Type-Options':'nosniff','Refer
 const buckets=new Map();
 app.use('/api',(req,res,next)=>{const period=req.method==='POST' && req.path==='/requests' ? 3600000 : 60000, limit=period===3600000 ? 10 : 120, key=req.ip+':'+period, time=Date.now(); let bucket=buckets.get(key); if(!bucket||bucket.until<=time) bucket={count:0,until:time+period}; bucket.count++;buckets.set(key,bucket); if(bucket.count>limit)return res.status(429).json({error:'Слишком много запросов. Попробуйте позже.'});next();});
 setInterval(()=>{const time=Date.now();for(const [key,b] of buckets)if(b.until<=time)buckets.delete(key)},60000).unref();
-app.use('/api/cloudpayments',express.raw({type:'application/x-www-form-urlencoded',limit:'64kb'}));
 app.use(express.json({ limit: '4mb' }));
 const accounts=setupAccounts(app,db,{dataDir});
 setupFeedback(app);
 const billing=setupBilling(db);
 const paymentSettings=setupPaymentSettings(db,dataDir);
-setupCloudNotifications(app,{db,billing,paymentSettings});
 setupAdmin(app,db,{billing,paymentSettings});
 setupBillingRoutes(app,{billing,accounts});
-setupCloudOrders(app,{billing,paymentSettings,accounts});
+setupYooKassa(app,{db,billing,paymentSettings,accounts});
 const upload = multer({storage:multer.memoryStorage(),limits:{fileSize:20*1024*1024, files:1, fields:3}});
 const officeUpload = multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024,files:1,fields:0}});
 const hash = (s) => createHash('sha256').update(s).digest('hex');

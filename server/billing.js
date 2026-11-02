@@ -78,7 +78,8 @@ export function setupBilling(db,{clock=Date.now}={}) {
  });
  const getOrder=(id,userId)=>{const o=db.prepare('SELECT id,kind,amount,status FROM billing_orders WHERE id=? AND user_id=?').get(id,userId);return o||null};
  const refund=(paymentTransactionId,refundTransactionId,amount)=>transaction(()=>{
-  if(!/^\d{1,30}$/.test(paymentTransactionId||'')||!/^\d{1,30}$/.test(refundTransactionId||'')||!Number.isSafeInteger(amount)||amount<=0)throw Error('Некорректные данные возврата.');
+  const validId=value=>/^(?:\d{1,30}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(value||'');
+  if(!validId(paymentTransactionId)||!validId(refundTransactionId)||!Number.isSafeInteger(amount)||amount<=0)throw Error('Некорректные данные возврата.');
   const existing=db.prepare('SELECT r.*,o.transaction_id payment_id FROM billing_refunds r JOIN billing_orders o ON o.id=r.order_id WHERE r.transaction_id=?').get(refundTransactionId);if(existing){if(existing.amount!==amount||existing.payment_id!==paymentTransactionId)throw Error('Возврат не совпадает с ранее обработанным.');return {repeated:true}}
   const o=db.prepare('SELECT * FROM billing_orders WHERE transaction_id=?').get(paymentTransactionId);if(!o||!['paid','test_paid'].includes(o.status))throw Error('Платёж не найден.');
   const total=db.prepare('SELECT COALESCE(SUM(amount),0) n FROM billing_refunds WHERE order_id=?').get(o.id).n;if(total+amount>o.amount)throw Error('Сумма возвратов превышает платёж.');
