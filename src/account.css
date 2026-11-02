@@ -31,3 +31,4 @@
 @media(hover:hover) and (pointer:fine){.account-primary:hover:not(:disabled){background:#2d2d2d}.account-close:hover{background:#f4f4f4}.account-trigger:hover{background:#f4f4f4}}
 @media(max-width:600px){.account-dialog{padding:34px 22px 26px;border-radius:18px}.account-heading h2{font-size:24px}.account-form{padding:18px;margin-top:22px}.account-symbol{width:52px;height:52px;border-radius:16px;margin-bottom:17px}.account-footnote{margin-top:18px}}
 @media(prefers-reduced-motion:reduce){.account-dialog *{transition:none!important}}
+.account-form .account-consent{display:flex;align-items:flex-start;gap:10px;margin:16px 0 4px}.account-form .account-consent input{width:18px;height:18px;min-width:18px;margin:2px 0 0;accent-color:#0b57d0}.account-form .account-consent label{margin:0;color:#41546c;font-size:12px;font-weight:400;line-height:1.5}.account-form .account-consent a{color:#0b57d0;text-decoration:underline;text-underline-offset:2px}

@@ -14,16 +14,20 @@ test('email login protects accounts, expires codes, isolates saved items and hon
  const billing=setupBilling(db,{clock:()=>time});
  const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));const root=`http://127.0.0.1:${server.address().port}`;
  const call=(path,{method='GET',body,cookie,origin}={})=>fetch(root+'/api/account/'+path,{method,headers:{...(body?{'Content-Type':'application/json'}:{}),...(cookie?{cookie}:{}),...(origin?{origin}:{})},body:body?JSON.stringify(body):undefined});
- const post=(path,body,cookie)=>call(path,{method:'POST',body,cookie});
+ const post=(path,body,cookie)=>call(path,{method:'POST',body:path==='code'?{consent:true,consentVersion:'2026-11-03-account-v1',...body}:body,cookie});
  try{
   for(const email of ['wrong','a..b@example.com','a@-example.com','a@example','a@x..com','a@x.com\r\nBcc: x'])assert.equal(validEmail(email),false,email);
   assert.equal(validEmail('hello+tag@example.com'),true);
   assert.equal((await post('code',{email:'bad'})).status,400);
+  assert.equal((await call('code',{method:'POST',body:{email:'alice@example.com'}})).status,400);
+  assert.equal(outbox.length,0);
   assert.equal((await call('code',{method:'POST',body:{email:'alice@example.com'},origin:'https://evil.test'})).status,403);
   assert.equal((await post('code',{email:'Alice@example.com'})).status,200);assert.equal(outbox[0].to,'alice@example.com');assert.match(outbox[0].code,/^\d{6}$/);
+  const consent=db.prepare('SELECT * FROM consent_records').get();assert.equal(consent.purpose,'account');assert.equal(consent.revision,'2026-11-03-account-v1');assert.ok(!JSON.stringify(consent).includes('alice@example.com'));
   assert.equal((await post('code',{email:'alice@example.com'})).status,429);
   assert.equal((await post('verify',{email:'alice@example.com',code:outbox[0].code==='000000'?'000001':'000000'})).status,400);
   let r=await post('verify',{email:'alice@example.com',code:outbox[0].code});assert.equal(r.status,200);const alice=r.headers.get('set-cookie');assert.match(alice,/HttpOnly/);assert.match(alice,/SameSite=Strict/);assert.match(alice,/Secure/);
+  assert.equal(db.prepare('SELECT verified_at FROM consent_records').get().verified_at,time);
   const aliceId=db.prepare('SELECT id FROM users WHERE email=?').get('alice@example.com').id;assert.equal(billing.state(aliceId).balance,1000);
   assert.equal((await post('verify',{email:'alice@example.com',code:outbox[0].code})).status,400);
   assert.equal(billing.state(aliceId).balance,1000);

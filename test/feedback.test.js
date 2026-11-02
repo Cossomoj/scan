@@ -4,10 +4,10 @@ import express from 'express';
 import {setupFeedback} from '../server/feedback.js';
 
 test('feedback validates input, sends to the owner and permits a direct reply', async t => {
-  const messages = [];
+  const messages = [], consents = [];
   const app = express();
   app.use(express.json());
-  setupFeedback(app, {sendMail: async message => messages.push(message)});
+  setupFeedback(app, {sendMail: async message => messages.push(message),recordConsent:(...args)=>consents.push(args)});
   const server = app.listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
   t.after(() => server.close());
@@ -26,6 +26,7 @@ test('feedback validates input, sends to the owner and permits a direct reply', 
   assert.equal((await send(valid)).status, 200);
   assert.equal(messages[0].to, 'maksim@kuchermg.ru');
   assert.equal(messages[0].replyTo, 'reader@example.com');
+  assert.deepEqual(consents[0],['reader@example.com','feedback','2026-11-03-feedback-v1']);
   assert.match(messages[0].subject, /Сообщить об ошибке/);
   assert.match(messages[0].text, /Не открывается файл/);
   assert.match(messages[0].text, /Согласие: предоставлено в форме обратной связи, редакция от 03\.11\.2026/);

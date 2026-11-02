@@ -53,7 +53,7 @@ export default function FeedbackDialog({onClose}) {
     } finally { setWorking(false); }
   };
 
-  return <div className="feedback-overlay ym-hide-content" onMouseDown={event => {if (event.target === event.currentTarget && !working) onClose()}}>
+  return <div className="feedback-overlay ym-hide-content ym-disable-clickmap" onMouseDown={event => {if (event.target === event.currentTarget && !working) onClose()}}>
     <section ref={dialog} className="feedback-dialog" role="dialog" aria-modal="true" aria-labelledby="feedback-title" aria-describedby="feedback-intro">
       <header className="feedback-header">
         <div><h2 id="feedback-title">Обратная связь</h2><p id="feedback-intro">Расскажите, чем мы можем помочь.</p></div>
@@ -66,7 +66,7 @@ export default function FeedbackDialog({onClose}) {
         <h3>Обращение отправлено</h3>
         <p>Ответим на указанную вами почту.</p>
         <button type="button" className="feedback-submit" onClick={onClose}>Готово</button>
-      </div> : <form className="feedback-form" onSubmit={submit}>
+      </div> : <form className="feedback-form ym-disable-submit" onSubmit={submit}>
         <label htmlFor="feedback-topic">Тема обращения</label>
         <select id="feedback-topic" required value={topic} onChange={event => setTopic(event.target.value)}>
           <option value="">Выберите тему</option>
@@ -77,9 +77,9 @@ export default function FeedbackDialog({onClose}) {
           <option value="other">Другое</option>
         </select>
         <label htmlFor="feedback-email">Электронная почта</label>
-        <input id="feedback-email" type="email" autoComplete="email" required maxLength={254} placeholder="name@example.ru" value={email} onChange={event => setEmail(event.target.value)}/>
+        <input id="feedback-email" className="ym-disable-keys" type="email" autoComplete="email" required maxLength={254} placeholder="name@example.ru" value={email} onChange={event => setEmail(event.target.value)}/>
         <label htmlFor="feedback-message">Сообщение</label>
-        <textarea id="feedback-message" required maxLength={5000} rows={4} placeholder="Опишите ваш вопрос или предложение" value={message} onChange={event => setMessage(event.target.value)}/>
+        <textarea id="feedback-message" className="ym-disable-keys" required maxLength={5000} rows={4} placeholder="Опишите ваш вопрос или предложение" value={message} onChange={event => setMessage(event.target.value)}/>
         <div className="feedback-count" aria-live="off">{message.length} / 5000</div>
         <div className="feedback-consent"><input id="feedback-consent" type="checkbox" required aria-label="Даю согласие на обработку персональных данных для ответа на обращение" checked={consent} onChange={event => setConsent(event.target.checked)}/><span><label htmlFor="feedback-consent">Даю </label><a href="/consent" target="_blank" rel="noopener noreferrer">согласие на обработку персональных данных</a><label htmlFor="feedback-consent"> для ответа на обращение. Ознакомился с </label><a href="/policy" target="_blank" rel="noopener noreferrer">политикой конфиденциальности</a>.</span></div>
         {error && <p className="feedback-error" role="alert">{error}</p>}

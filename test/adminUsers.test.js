@@ -15,7 +15,7 @@ test('archive revokes access and preserves data; restore and permanent deletion 
  const app=express();app.use(express.json());setupAccounts(app,db,{dataDir:dir,sendMail:async(email,code)=>mail.push({email,code}),clock:()=>now});const billing=setupBilling(db,{clock:()=>now});const salt=Buffer.alloc(16,4),credential=salt.toString('hex')+':'+scryptSync('test-password',salt,32).toString('hex');setupAdmin(app,db,{credential,billing,clock:()=>now});
  const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const root=`http://127.0.0.1:${server.address().port}`;
  const call=(path,{method='GET',body,cookie,origin}={})=>fetch(root+path,{method,headers:{...(body?{'content-type':'application/json'}:{}),...(cookie?{cookie}:{}),...(origin?{origin}:{})},body:body?JSON.stringify(body):undefined});
- const post=(path,body,cookie)=>call(path,{method:'POST',body,cookie});
+ const post=(path,body,cookie)=>call(path,{method:'POST',body:path==='/api/account/code'?{consent:true,consentVersion:'2026-11-03-account-v1',...body}:body,cookie});
  try{
   await post('/api/account/code',{email:'reader@example.test'});let response=await post('/api/account/verify',{email:'reader@example.test',code:mail.at(-1).code});assert.equal(response.status,200);const userCookie=response.headers.get('set-cookie'),user=db.prepare('SELECT * FROM users WHERE email=?').get('reader@example.test');
   const item={id:'example',kind:'text',name:'Example',text:'Example',color:'#17233b',widthMm:50,heightMm:10};assert.equal((await call('/api/account/assets/example',{method:'PUT',body:item,cookie:userCookie})).status,200);

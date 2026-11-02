@@ -17,6 +17,8 @@ import FeedbackDialog from './FeedbackDialog.jsx';
 import Policy from './Policy.jsx';
 import Consent from './Consent.jsx';
 import {Offer,Requisites} from './Offer.jsx';
+import PrivacyDocuments from './PrivacyDocuments.jsx';
+import PrivacyBanner from './PrivacyBanner.jsx';
 import Admin from './Admin.jsx';
 import './style.css';
 import './editor.css';
@@ -63,7 +65,7 @@ const getOwnerPdf=()=>getRemotePdf('owner');
 const getSignerPdf=()=>getRemotePdf('sign');
 const home=()=>{window.scrollTo(0,0);setStage('home');setError('');setFile(null);setBytes(null);setMode(null);setExampleDocument(false);setSigners(['']);};
 const example=async()=>{setBusy(true);setError('');try{await pick(await createExamplePdf(),'self',true)}catch{setError('Не удалось открыть пример. Попробуйте ещё раз или выберите свой PDF.')}finally{setBusy(false)}};
-return <div className={stage==='home'?'metrika-view':'metrika-view ym-hide-content'}>{stage!=='home'&&!(stage==='editor'&&mode==='self')&&<Header/>}{stage==='home'&&<Landing onChoose={choose} onDropFile={f=>{setUploadOpen(true);pick(f,'self')}} onExample={example} onFeedback={()=>setFeedbackOpen(true)} busy={busy} error={uploadOpen?'':error}/>}
+return <div className={stage==='home'?'metrika-view':'metrika-view ym-hide-content ym-disable-keys ym-disable-submit ym-disable-clickmap'}>{stage!=='home'&&!(stage==='editor'&&mode==='self')&&<Header/>}{stage==='home'&&<Landing onChoose={choose} onDropFile={f=>{setUploadOpen(true);pick(f,'self')}} onExample={example} onFeedback={()=>setFeedbackOpen(true)} busy={busy} error={uploadOpen?'':error}/>}
 {stage==='home'&&uploadOpen&&<UploadDialog onClose={()=>{setUploadOpen(false);setError('')}} onSelect={f=>pick(f,'self')} busy={busy} error={error}/>}
 <input ref={input} hidden type="file" accept="application/pdf,.pdf" onChange={e=>{if(e.target.files[0])pick(e.target.files[0],'others');e.target.value=''}}/>
 {stage==='editor'&&(mode==='self'?<DocumentEditor file={file.name} bytes={bytes} onBack={home} onFeedback={()=>setFeedbackOpen(true)} isExample={exampleDocument}/>:<Editor file={file.name} bytes={bytes} onBack={home} onFinish={finish} finishing={busy} mode={mode}/>)}
@@ -80,4 +82,4 @@ return <div className={stage==='home'?'metrika-view':'metrika-view ym-hide-conte
 </div>}
 function LinkRow({title,value,copy}){return <div className="link-row"><strong>{title}</strong><div><input readOnly value={value} onFocus={e=>e.target.select()}/><button onClick={()=>copy(value)}>Копировать</button></div></div>}
 const publicPath=location.pathname.replace(/\/+$/,'');
-createRoot(document.getElementById('root')).render(location.pathname==='/admin'?<Admin/>:publicPath==='/policy'?<Policy/>:publicPath==='/consent'?<Consent/>:publicPath==='/offer'?<Offer/>:publicPath==='/details'?<Requisites/>:<AccountProvider><App/></AccountProvider>);
+createRoot(document.getElementById('root')).render(<>{location.pathname==='/admin'?<Admin/>:publicPath==='/policy'?<Policy/>:publicPath==='/consent'?<Consent/>:publicPath==='/account-consent'?<PrivacyDocuments kind="account"/>:publicPath==='/analytics-consent'?<PrivacyDocuments kind="analytics"/>:publicPath==='/offer'?<Offer/>:publicPath==='/details'?<Requisites/>:<AccountProvider><App/></AccountProvider>}<PrivacyBanner/></>);

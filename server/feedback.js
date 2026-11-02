@@ -10,7 +10,7 @@ const TOPICS = new Map([
 ]);
 const RECIPIENT = 'maksim@kuchermg.ru';
 
-export function setupFeedback(app, {sendMail, clock = Date.now} = {}) {
+export function setupFeedback(app, {sendMail, clock = Date.now, recordConsent} = {}) {
   const env = process.env;
   const configured = !!(env.SMTP_HOST && env.SMTP_PORT && env.SMTP_USER && env.SMTP_PASSWORD && env.SMTP_FROM);
   const transport = configured ? nodemailer.createTransport({
@@ -50,6 +50,7 @@ export function setupFeedback(app, {sendMail, clock = Date.now} = {}) {
     bucket.count++;
     attempts.set(req.ip, bucket);
     try {
+      recordConsent?.(email, 'feedback', '2026-11-03-feedback-v1');
       await send({
         from: {name: 'конторка.рф', address: env.SMTP_FROM || 'no-reply@конторка.рф'},
         to: RECIPIENT,

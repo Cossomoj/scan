@@ -12,6 +12,7 @@ import {setupPaymentSettings} from './paymentSettings.js';
 import {setupBillingRoutes} from './billingRoutes.js';
 import {setupYooKassa} from './yookassaRoutes.js';
 import {setupFeedback} from './feedback.js';
+import {setupPrivacy} from './privacy.js';
 
 const dataDir = resolve(process.env.DATA_DIR || './data');
 mkdirSync(dataDir, { recursive: true, mode: 0o700 });
@@ -29,7 +30,8 @@ app.use('/api',(req,res,next)=>{const period=req.method==='POST' && req.path==='
 setInterval(()=>{const time=Date.now();for(const [key,b] of buckets)if(b.until<=time)buckets.delete(key)},60000).unref();
 app.use(express.json({ limit: '4mb' }));
 const accounts=setupAccounts(app,db,{dataDir});
-setupFeedback(app);
+setupPrivacy(app,db);
+setupFeedback(app,{recordConsent:accounts.recordConsent});
 const billing=setupBilling(db);
 const paymentSettings=setupPaymentSettings(db,dataDir);
 setupAdmin(app,db,{billing,paymentSettings});
