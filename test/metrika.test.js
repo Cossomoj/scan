@@ -15,12 +15,14 @@ test('SPA views use fixed paths and never include private URL or referrer data',
     recordMetrikaView('home');
     recordMetrikaView('editor');
     recordMetrikaView('policy');
+    recordMetrikaView('consent');
     recordMetrikaView('created');
-    assert.equal(calls.length, 3);
+    assert.equal(calls.length, 4);
     assert.deepEqual(calls.map(call => call[2]), [
       'https://xn--80ataleboo.xn--p1ai/?utm_source=search',
       'https://xn--80ataleboo.xn--p1ai/editor',
       'https://xn--80ataleboo.xn--p1ai/policy',
+      'https://xn--80ataleboo.xn--p1ai/consent',
     ]);
     assert.equal(calls[0][3].referer, 'https://example.com/landing');
     assert.equal(calls[1][3].referer, 'https://xn--80ataleboo.xn--p1ai/?utm_source=search');

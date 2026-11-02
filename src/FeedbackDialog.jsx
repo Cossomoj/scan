@@ -81,7 +81,7 @@ export default function FeedbackDialog({onClose}) {
         <label htmlFor="feedback-message">Сообщение</label>
         <textarea id="feedback-message" required maxLength={5000} rows={4} placeholder="Опишите ваш вопрос или предложение" value={message} onChange={event => setMessage(event.target.value)}/>
         <div className="feedback-count" aria-live="off">{message.length} / 5000</div>
-        <div className="feedback-consent"><input id="feedback-consent" type="checkbox" required checked={consent} onChange={event => setConsent(event.target.checked)}/><span><label htmlFor="feedback-consent">Согласен на обработку указанных данных для ответа на обращение в соответствии с </label><a href="/policy" target="_blank" rel="noopener noreferrer">политикой конфиденциальности</a>.</span></div>
+        <div className="feedback-consent"><input id="feedback-consent" type="checkbox" required aria-label="Даю согласие на обработку персональных данных для ответа на обращение" checked={consent} onChange={event => setConsent(event.target.checked)}/><span><label htmlFor="feedback-consent">Даю </label><a href="/consent" target="_blank" rel="noopener noreferrer">согласие на обработку персональных данных</a><label htmlFor="feedback-consent"> для ответа на обращение. Ознакомился с </label><a href="/policy" target="_blank" rel="noopener noreferrer">политикой конфиденциальности</a>.</span></div>
         {error && <p className="feedback-error" role="alert">{error}</p>}
         <button type="submit" className="feedback-submit" disabled={working}>{working ? 'Отправляем…' : 'Отправить'}</button>
         <p className="feedback-alternative">Или напишите на <a href="mailto:support@xn--80ataleboo.xn--p1ai">support@конторка.рф</a></p>

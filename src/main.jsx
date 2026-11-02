@@ -15,6 +15,7 @@ import {prepareDocument} from './prepareDocument.js';
 import {recordMetrikaView} from './metrika.js';
 import FeedbackDialog from './FeedbackDialog.jsx';
 import Policy from './Policy.jsx';
+import Consent from './Consent.jsx';
 import Admin from './Admin.jsx';
 import './style.css';
 import './editor.css';
@@ -77,4 +78,5 @@ return <div className={stage==='home'?'metrika-view':'metrika-view ym-hide-conte
 {feedbackOpen&&<FeedbackDialog onClose={()=>setFeedbackOpen(false)}/>}
 </div>}
 function LinkRow({title,value,copy}){return <div className="link-row"><strong>{title}</strong><div><input readOnly value={value} onFocus={e=>e.target.select()}/><button onClick={()=>copy(value)}>Копировать</button></div></div>}
-createRoot(document.getElementById('root')).render(location.pathname==='/admin'?<Admin/>:location.pathname.replace(/\/+$/,'')==='/policy'?<Policy/>:<AccountProvider><App/></AccountProvider>);
+const publicPath=location.pathname.replace(/\/+$/,'');
+createRoot(document.getElementById('root')).render(location.pathname==='/admin'?<Admin/>:publicPath==='/policy'?<Policy/>:publicPath==='/consent'?<Consent/>:<AccountProvider><App/></AccountProvider>);
