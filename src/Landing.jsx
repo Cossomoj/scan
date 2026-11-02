@@ -4,6 +4,7 @@ import Brand from './Brand.jsx';
 import './landing.css';
 import './footer.css';
 import './landing-demo.css';
+import './landing-features.css';
 
 function Glyph({name, ...props}) {
   const paths = {
@@ -90,6 +91,25 @@ function EditorDemo({onExample, busy}) {
   </section>;
 }
 
+const features = [
+  {image:'stamp', title:'Печать на документ', description:'Загрузите изображение печати, уберите фон и разместите её на странице.'},
+  {image:'draw', title:'Подпись от руки', description:'Распишитесь мышью, пальцем или стилусом. Выберите цвет и толщину линии.'},
+  {image:'cover', title:'Замазка данных', description:'Закройте нужную область цветной плашкой и проверьте результат перед отправкой.'},
+  {image:'text', title:'Текст на документ', description:'Впишите имя, дату или ответ в анкете. Настройте шрифт, цвет и размер.'},
+  {image:'extract', title:'Вырезать со страницы', description:'Выделите подпись или печать на скане и сохраните для других документов.'},
+  {image:'office', title:'Word и Excel в PDF', description:'Откройте DOC, DOCX, XLS или XLSX, чтобы заполнить и подписать как PDF.'},
+];
+
+function FeatureGallery(){
+  return <section className="home-features" aria-labelledby="features-title">
+    <div className="features-heading"><h2 id="features-title">Всё для работы<br/>с документами</h2><p>От подписи и заполнения до обработки страниц — всё в одном редакторе.</p></div>
+    <div className="features-grid">{features.map(feature=><article className="feature-card" key={feature.image}>
+      <div className={'feature-preview feature-preview-'+feature.image}><img src={'/feature-previews/'+feature.image+'.png'} alt="" loading="lazy" decoding="async"/></div>
+      <div className="feature-copy"><h3>{feature.title}</h3><p>{feature.description}</p></div>
+    </article>)}</div>
+  </section>;
+}
+
 const questions = [
   ['Нужно регистрироваться или платить?', 'Нет. Откройте PDF, внесите изменения и скачайте результат. Для работы с документом аккаунт и оплата не нужны.'],
   ['Как добавить свою подпись или печать?', 'В редакторе нажмите «Подпись / печать». Нарисуйте подпись мышью или пальцем либо загрузите изображение PNG, JPG, WebP или SVG. После добавления можно убрать светлый фон, изменить размер и наклон.'],
@@ -118,6 +138,7 @@ export default function Landing({onChoose,onDropFile,onExample,busy,error}) {
         </div>
       </section>
       <EditorDemo onExample={onExample} busy={busy}/>
+      <FeatureGallery/>
       <section className="home-how" id="how" aria-labelledby="how-title"><div className="home-section-intro"><h2 id="how-title">Три шага.<br/>И документ готов.</h2><p>Заявление, анкета или договор —<br/>всё делается в одном окне.</p></div><ol className="home-steps"><li><span>1</span><div><h3>Откройте PDF</h3><p>Выберите файл на компьютере или телефоне. Страницы появятся в редакторе.</p></div></li><li><span>2</span><div><h3>Добавьте нужное</h3><p>Подпись, печать, текст или галочку. Перемещайте элементы и меняйте их размер.</p></div></li><li><span>3</span><div><h3>Скачайте результат</h3><p>Нажмите «Скачать PDF». Документ с вашими изменениями сохранится на устройство.</p></div></li></ol></section>
       <section className="home-more" aria-label="Дополнительные возможности"><div className="home-local"><Glyph name="shield" width="34" height="34"/><h2>Ваш файл.<br/>Ваш браузер.</h2><p>При самостоятельном заполнении и подписании PDF обрабатывается на вашем устройстве.</p><p className="home-fine-print">Скачайте готовый документ перед закрытием страницы.</p></div><div className="home-invite"><Glyph name="link" width="34" height="34"/><h2>Нужна подпись<br/>другого человека?</h2><p>Укажите участников и передайте каждому личную ссылку. Они смогут подписать документ по очереди.</p><button className="home-text-action" disabled={busy} onClick={()=>choose('others')}>Пригласить подписантов <Glyph name="arrow"/></button><small>Для этого PDF загружается на сервер на 7 дней.</small></div></section>
       <section className="home-faq" id="questions" aria-labelledby="questions-title"><h2 id="questions-title">Всё, что хочется уточнить</h2><div>{questions.map(([q,a],i)=><details key={q} id={'question-'+i}><summary>{q}<Glyph name="plus"/></summary><p>{a}</p></details>)}</div></section>
