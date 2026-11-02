@@ -162,7 +162,7 @@ export default function Landing({onChoose,onDropFile,onExample,onFeedback,busy,e
         <div className="home-intro">
           <h1 id="home-title">Подписывайте<br/><span>документы онлайн.</span></h1>
           <p>Заполните документ, добавьте подпись или печать и скачайте готовый PDF.</p>
-          <ul className="home-benefits"><li><Glyph name="check"/>PDF, Word, Excel и фотографии</li><li><Glyph name="check"/>Без принтера и сканера</li><li><Glyph name="check"/>{billing?.enabled?'Редактирование без регистрации':'Бесплатно и без регистрации'}</li></ul>
+          <ul className="home-benefits"><li><Glyph name="check"/>PDF, Word, Excel и фотографии</li><li><Glyph name="check"/>Без принтера и сканера</li></ul>
           <button className="home-button home-hero-action" disabled={busy} onClick={()=>choose('self')}>Подписать документ <Glyph name="arrow"/></button>
         </div>
         <div className={'home-upload '+(dragging?'is-dragging':'')} onDragEnter={e=>{e.preventDefault();if(e.dataTransfer.types.includes('Files'))setDragging(true)}} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect=busy?'none':'copy'}} onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget))setDragging(false)}} onDrop={onDrop} aria-busy={busy}>
