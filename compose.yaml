@@ -9,6 +9,7 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
       CONVERTER_URL: http://converter:3001
+      SIGNATURE_PROCESSOR_URL: http://signature-processor:8000
       ADMIN_CREDENTIAL: ${ADMIN_CREDENTIAL:-}
     volumes:
       - sign_data:/app/data
@@ -31,6 +32,17 @@ services:
     security_opt: ["no-new-privileges:true"]
     pids_limit: 128
     mem_limit: 768m
+    cpus: 1.0
+    networks:
+      - conversion
+  signature-processor:
+    build: ./signature-processor
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 64
+    mem_limit: 384m
     cpus: 1.0
     networks:
       - conversion
