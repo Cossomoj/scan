@@ -7,7 +7,9 @@ from PIL import Image, ImageDraw
 
 url = sys.argv[1].rstrip('/') + '/api/signature/enhance'
 image = Image.new('RGB', (71, 49), 'white')
-ImageDraw.Draw(image).line((5, 20, 65, 20), fill=(15, 24, 100), width=1)
+draw = ImageDraw.Draw(image)
+draw.line((5, 20, 65, 20), fill=(15, 24, 100), width=1)
+draw.line((5, 30, 65, 30), fill=(100, 110, 180), width=1)
 source = io.BytesIO()
 image.save(source, format='PNG')
 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
@@ -19,6 +21,9 @@ for attempt in range(8):
             result = Image.open(io.BytesIO(response.read())).convert('RGBA')
         if result.size != image.size or result.getpixel((35, 20))[3] < 240 or result.getpixel((35, 18))[3] > 10:
             raise ValueError('Deployed processor did not preserve the thin line.')
+        red, _, blue, alpha = result.getpixel((35, 30))
+        if red >= 85 or blue <= red or alpha < 240:
+            raise ValueError('Deployed processor did not strengthen the light blue stroke.')
         print('Signature processor deployment verified')
         break
     except Exception:
