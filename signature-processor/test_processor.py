@@ -5,6 +5,15 @@ from service import process_image
 
 
 class ProcessingTest(unittest.TestCase):
+    def test_small_thin_signature_remains_opaque_and_background_clear(self):
+        image = Image.new('RGB', (71, 49), 'white')
+        draw = ImageDraw.Draw(image)
+        draw.line((5, 20, 65, 20), fill=(15, 24, 100), width=1)
+        result = Image.open(io.BytesIO(process_image(image))).convert('RGBA')
+        self.assertEqual(result.getpixel((35, 20)), (15, 24, 100, 255))
+        self.assertEqual(result.getpixel((35, 18))[3], 0)
+        self.assertEqual(result.getpixel((0, 0))[3], 0)
+
     def test_white_background_is_removed_and_line_is_not_removed(self):
         image = Image.new('RGB', (400, 150), 'white')
         draw = ImageDraw.Draw(image)

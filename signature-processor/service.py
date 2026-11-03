@@ -13,8 +13,9 @@ MAX_BYTES = 2 * 1024 * 1024
 Image.MAX_IMAGE_PIXELS = 900 * 700
 
 def process_image(image):
-    # Never enable the upstream line-removal step implicitly.
-    result, _ = extract_signature(image, mode='auto', steps=[('threshold', 200), ('blue_tolerance', 30), ('clean_lines', 0), ('contrast', 0), ('smoothing', 20)])
+    # Blurring the alpha channel washes out thin strokes in small images.
+    # Keep the original stroke colours and never remove lines implicitly.
+    result, _ = extract_signature(image, mode='auto', steps=[('threshold', 200), ('blue_tolerance', 30), ('clean_lines', 0), ('contrast', 0), ('smoothing', 0)])
     output = io.BytesIO()
     result.save(output, format='PNG')
     return output.getvalue()
