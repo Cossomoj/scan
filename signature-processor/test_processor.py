@@ -25,15 +25,18 @@ class ProcessingTest(unittest.TestCase):
         self.assertEqual(result.getpixel((35, 18))[3], 0)
         self.assertEqual(result.getpixel((0, 0))[3], 0)
 
-    def test_white_background_is_removed_and_line_is_not_removed(self):
+    def test_background_rule_and_fleck_removed_but_crossing_ink_preserved(self):
         image = Image.new('RGB', (400, 150), 'white')
         draw = ImageDraw.Draw(image)
-        draw.line((10, 120, 390, 120), fill='black', width=2)
+        draw.line((10, 55, 390, 55), fill=(130, 130, 130), width=2)
         draw.line((100, 90, 200, 20, 300, 90), fill=(0, 30, 180), width=5)
+        draw.rectangle((80, 105, 81, 106), fill=(90, 85, 95))
         result = Image.open(io.BytesIO(process_image(image))).convert('RGBA')
         self.assertEqual(result.size, image.size)
         self.assertEqual(result.getpixel((20, 20))[3], 0)
-        self.assertGreater(result.getpixel((20, 120))[3], 0)
+        self.assertEqual(result.getpixel((20, 55))[3], 0)
+        self.assertEqual(result.getpixel((80, 105))[3], 0)
+        self.assertGreater(result.getpixel((150, 55))[3], 200)
         self.assertGreater(result.getpixel((200, 20))[3], 200)
 
 

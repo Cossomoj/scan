@@ -33,7 +33,7 @@ export default function SignatureWizard({onClose,onUse,initialFile=null,initialM
   const controller=new AbortController();let cancelled=false;
   setEnhanceError('');
   const timer=setTimeout(async()=>{try{
-   const cropped=previewImage(img,crop,0,900,removeRule);
+   const cropped=previewImage(img,crop,0,900,false);
    const blob=await (await fetch(cropped)).blob();
    const response=await fetch('/api/signature/enhance',{method:'POST',headers:{'Content-Type':'image/png'},body:blob,signal:controller.signal});
    if(!response.ok)throw new Error('Не удалось улучшить изображение. Попробуйте ещё раз или выключите обработку.');
@@ -81,8 +81,8 @@ export default function SignatureWizard({onClose,onUse,initialFile=null,initialM
    {fileInfo&&<div className="sw-file"><span className="sw-file-check">✓</span><strong title={fileInfo.name}>{fileInfo.name}</strong><span>{sizeText} → PNG</span></div>}
    <p className="sw-crop-help">Перетащите рамку или её углы, чтобы выбрать область {kind==='stamp'?'печати':'подписи'}.</p>
    <div className="sw-background"><label htmlFor="sw-strength">Удаление фона <output>{enhanced?'Автоматически':Math.round(strength)+'%'}</output></label><input id="sw-strength" type="range" min="0" max="100" value={strength} disabled={enhanced} onChange={e=>setStrength(+e.target.value)}/><div><span>Без удаления</span><span>Сильнее</span></div></div>
-   <label className="sw-remove-rule"><input type="checkbox" checked={removeRule} onChange={e=>setRemoveRule(e.target.checked)}/><span><strong>Убрать линию под подписью</strong><small>Проверьте результат: части штриха на линии могут исчезнуть.</small></span></label>
-   {kind==='signature'&&method==='upload'&&<label className="sw-enhance"><input type="checkbox" checked={enhanced} onChange={e=>{setEnhanced(e.target.checked);setEnhancedResult(null);setEnhanceError('')}}/><span><strong>Улучшенная обработка</strong><small>Усиливает контраст бледных штрихов синей и тёмной ручки. Выделенный фрагмент отправится на сервер и не сохраняется там.</small></span></label>}
+   <label className="sw-remove-rule"><input type="checkbox" checked={removeRule||enhanced} disabled={enhanced} onChange={e=>setRemoveRule(e.target.checked)}/><span><strong>Убрать линию под подписью</strong><small>{enhanced?'Входит в улучшенную обработку.':'Проверьте результат: части штриха на линии могут исчезнуть.'}</small></span></label>
+   {kind==='signature'&&method==='upload'&&<label className="sw-enhance"><input type="checkbox" checked={enhanced} onChange={e=>{setEnhanced(e.target.checked);setEnhancedResult(null);setEnhanceError('')}}/><span><strong>Улучшенная обработка</strong><small>Очищает фон от линий бланка и мелких точек, подчёркивает края штрихов. Выделенный фрагмент отправится на сервер и не сохраняется там.</small></span></label>}
    {enhanced&&<p className="sw-enhance-status" role="status">{enhanceError||(!enhancedReady?'Улучшаем подпись…':'Готово: изображение выше обновлено.')}{enhanceError&&<> <button type="button" onClick={()=>setEnhanceAttempt(n=>n+1)}>Повторить</button></>}</p>}
    {error&&<p className="sw-error" role="alert">{error}</p>}
    <div className="sw-footer"><button type="button" className="sw-outline" onClick={()=>{setCrop(detectImage(img,kind==='stamp'));setStrength(0);setRemoveRule(false);setEnhanced(false);setError('')}}>Сбросить</button><button type="button" className="sw-primary" disabled={!resultPreview||(enhanced&&!enhancedReady)} onClick={()=>{setError('');setCompare(50);setStep(3)}}>Далее</button></div>
