@@ -62,3 +62,9 @@ jobs:
           printf '%s\n' '92.63.101.127 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJSjbus66za62kqD8VU1oiRPMGP+5/0TEmIz0sov/232' > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/deploy_key ~/.ssh/known_hosts
           git archive --format=tar.gz HEAD | ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes root@92.63.101.127
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install Pillow==13.0.0
+      - name: Verify deployed signature processor
+        run: python signature-processor/smoke_test.py https://xn--80ataleboo.xn--p1ai
