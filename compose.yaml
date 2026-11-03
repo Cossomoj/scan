@@ -2,6 +2,9 @@ services:
   app:
     build: .
     restart: unless-stopped
+    depends_on:
+      signature-processor:
+        condition: service_started
     environment:
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-}

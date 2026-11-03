@@ -30,6 +30,19 @@ jobs:
           python-version: '3.13'
       - run: python -m pip install -r signature-processor/requirements.txt
       - run: python -m unittest discover -s signature-processor -p 'test_*.py'
+      - name: Build and check signature processor
+        run: |
+          docker build -t signature-processor-ci ./signature-processor
+          docker run -d --rm --name signature-processor-ci -p 127.0.0.1:18080:8000 signature-processor-ci
+          trap 'docker stop signature-processor-ci >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:18080/health >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:18080/health >/dev/null
+          python -c "from PIL import Image; Image.new('RGB', (80,40), 'white').save('/tmp/signature-ci.png')"
+          curl -fsS -H 'Content-Type: image/png' --data-binary @/tmp/signature-ci.png http://127.0.0.1:18080/extract -o /tmp/signature-result-ci.png
+          python -c "from PIL import Image; im=Image.open('/tmp/signature-result-ci.png').convert('RGBA'); assert im.size == (80,40) and im.getpixel((0,0))[3] == 0"
   deploy:
     if: github.event_name != 'pull_request'
     needs: test
