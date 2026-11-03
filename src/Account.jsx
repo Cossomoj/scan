@@ -11,19 +11,30 @@ function describeLocalItems(items){const labels={signature:['подпись','п
 async function request(path,body){const response=await fetch('/api/account/'+path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});let data={};try{data=await response.json()}catch{}if(!response.ok)throw Error(data.error||'Не удалось выполнить запрос. Попробуйте ещё раз.');return data}
 export function AccountProvider({children}){
  const [user,setUser]=useState(getAccount()),[available,setAvailable]=useState(false),[open,setOpen]=useState(false),[localItems,setLocalItems]=useState([]),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
+ const trigger=useRef(null);
+ const openAccount=event=>{
+  trigger.current=event?.currentTarget || document.activeElement;
+  setNotice('');
+  setOpen(true);
+ };
+ useEffect(()=>{
+  if(!open && trigger.current){
+   trigger.current.focus({preventScroll:true});
+   trigger.current=null;
+  }
+ },[open]);
  useEffect(()=>subscribeAccount(setUser),[]);
  useEffect(()=>{if(!open)return;document.body.classList.add('account-dialog-open');return()=>document.body.classList.remove('account-dialog-open')},[open]);
  useEffect(()=>{let alive=true;request('session').then(data=>{if(alive){if(data.user)defaultAnalyticsToDenied();setAvailable(data.available);setAccount(data.user);window.dispatchEvent(new Event('account-session-resolved'))}}).catch(()=>{if(alive){setAccount(null);setNotice('Не удалось проверить вход в аккаунт.');window.dispatchEvent(new Event('account-session-resolved'))}});return()=>{alive=false}},[]);
  useEffect(()=>{let alive=true;setLocalItems([]);if(user)Promise.all([listLocalSignatures(),listSignatures()]).then(([local,remote])=>{if(alive){const known=new Set(remote.map(item=>item.id));setLocalItems(local.filter(item=>!known.has(item.id)))}}).catch(()=>{});return()=>{alive=false}},[user]);
  const logout=async()=>{setBusy(true);setNotice('');try{await request('logout',{});setAccount(null);setOpen(false)}catch(e){setNotice(e.message)}finally{setBusy(false)}};
  const importLocal=async()=>{setBusy(true);setNotice('');try{const count=await importLocalSignatures();setLocalItems([]);setNotice(count?'Готово. Теперь сохранённое доступно в вашем профиле на других устройствах.':'Всё, что сохранено в этом браузере, уже есть в профиле.');window.dispatchEvent(new Event('account-assets-changed'))}catch(e){setNotice(e.message)}finally{setBusy(false)}};
- return <Context.Provider value={{user,available,openAccount:()=>{setNotice('');setOpen(true)}}}>{children}{open&&<AccountDialog user={user} available={available} onClose={()=>setOpen(false)} onSuccess={u=>{defaultAnalyticsToDenied();setAccount(u);window.dispatchEvent(new Event('account-session-resolved'));setNotice('Вы вошли в профиль.')}} logout={logout} importLocal={importLocal} localItems={localItems} notice={notice} busy={busy}/>}</Context.Provider>;
+ return <Context.Provider value={{user,available,openAccount}}>{children}{open&&<AccountDialog user={user} available={available} onClose={()=>setOpen(false)} onSuccess={u=>{defaultAnalyticsToDenied();setAccount(u);window.dispatchEvent(new Event('account-session-resolved'));setNotice('Вы вошли в профиль.')}} logout={logout} importLocal={importLocal} localItems={localItems} notice={notice} busy={busy}/>}</Context.Provider>;
 }
 export const useAccount=()=>useContext(Context);
 export function AccountButton({className=''}){const {user,openAccount}=useAccount();return <button type="button" className={'account-trigger '+className} onClick={openAccount}>{user?<>Мой профиль <span className="account-email ym-hide-content">{user.email}</span></>:'Войти'}</button>}
 function AccountDialog({user,available,onClose,onSuccess,logout,importLocal,localItems,notice,busy}){
  const [email,setEmail]=useState(''),[code,setCode]=useState(''),[consent,setConsent]=useState(false),[step,setStep]=useState('email'),[working,setWorking]=useState(false),[error,setError]=useState(''),[justSignedIn,setJustSignedIn]=useState(false),dialog=useRef(null);
- useEffect(()=>{const previous=document.activeElement;return()=>previous?.focus?.()},[]);
  useEffect(()=>{if(user||!available)dialog.current?.querySelector('.account-close')?.focus()},[user,available]);
  useEffect(()=>{const key=e=>{if(e.key==='Escape'){onClose();return}if(e.key==='Tab'&&dialog.current){const nodes=[...dialog.current.querySelectorAll('button:not(:disabled),input:not(:disabled),a[href]')].filter(n=>n.offsetParent!==null);if(!nodes.length)return;const first=nodes[0],last=nodes[nodes.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key)},[onClose]);
  const send=async e=>{e.preventDefault();setError('');setWorking(true);try{await request('code',{email:email.trim(),consent,consentVersion:'2026-11-03-account-v1'});setStep('code')}catch(e){setError(e.message)}finally{setWorking(false)}};
