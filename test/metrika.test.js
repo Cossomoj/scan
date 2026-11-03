@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {recordMetrikaView,startMetrika,stopMetrika} from '../src/metrika.js';
+import {recordMetrikaView,startMetrika,stopMetrika,analyticsChoice,defaultAnalyticsToDenied} from '../src/metrika.js';
 
 test('SPA views use fixed paths and never include private URL or referrer data', () => {
   const calls = [];
@@ -51,4 +51,11 @@ test('counter loads only with consent and never for private links or admin', () 
     window.location=new URL('https://xn--80ataleboo.xn--p1ai/');startMetrika();assert.equal(inserted.length,1);assert.match(inserted[0].src,/mc\.yandex\.ru/);assert.equal(window.ym.a[0][1],'init');
     stopMetrika();assert.equal(window.disableYaCounter114023353,true);
   }finally{delete global.window;delete global.document;delete global.localStorage}
+});
+
+test('login defaults an unset analytics choice to denied without overriding a prior choice',()=>{
+ let value=null;global.window={};global.localStorage={getItem:()=>value,setItem:(_key,next)=>{value=next}};
+ try{assert.equal(defaultAnalyticsToDenied(),true);assert.equal(analyticsChoice().choice,'denied');value=JSON.stringify({choice:'allowed',id:'existing'});assert.equal(defaultAnalyticsToDenied(),false);assert.equal(analyticsChoice().choice,'allowed');value=JSON.stringify({choice:'denied'});assert.equal(defaultAnalyticsToDenied(),false);
+  global.localStorage={getItem:()=>{throw Error('blocked')},setItem:()=>{throw Error('blocked')}};assert.equal(defaultAnalyticsToDenied(),true);assert.equal(analyticsChoice().choice,'denied');
+ }finally{delete global.window;delete global.localStorage}
 });

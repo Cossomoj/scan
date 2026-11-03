@@ -7,7 +7,14 @@ let currentStage = 'home';
 let loaded = false;
 
 export function analyticsChoice() {
-  try { const value=JSON.parse(localStorage.getItem(ANALYTICS_KEY)||'null');return value?.choice==='allowed'||value?.choice==='denied'?value:null } catch { return null }
+  try { const value=JSON.parse(localStorage.getItem(ANALYTICS_KEY)||'null');if(value?.choice==='allowed'||value?.choice==='denied')return value } catch {}
+  return window.__kontorkaAnalyticsChoice||null;
+}
+export function defaultAnalyticsToDenied() {
+  if(analyticsChoice())return false;
+  const value={choice:'denied',id:null,revision:ANALYTICS_REVISION};
+  try{localStorage.setItem(ANALYTICS_KEY,JSON.stringify(value))}catch{window.__kontorkaAnalyticsChoice=value}
+  return true;
 }
 export function analyticsContext() {
   return window.location.hostname==='xn--80ataleboo.xn--p1ai' && !/^\/admin\/?$/.test(window.location.pathname) && !/^#\/(?:sign|owner)\//.test(window.location.hash);
