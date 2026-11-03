@@ -7,7 +7,10 @@ export function setupAdmin(app,db,{clock=Date.now,credential=process.env.ADMIN_C
  db.exec(`CREATE TABLE IF NOT EXISTS admin_sessions (token_hash TEXT PRIMARY KEY,expires INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS admin_attempts (ip TEXT NOT NULL,created INTEGER NOT NULL);
  CREATE INDEX IF NOT EXISTS admin_attempts_created ON admin_attempts(created);
- CREATE TABLE IF NOT EXISTS download_days (day INTEGER PRIMARY KEY,count INTEGER NOT NULL);`);
+ CREATE TABLE IF NOT EXISTS download_days (day INTEGER PRIMARY KEY,count INTEGER NOT NULL);
+ CREATE TABLE IF NOT EXISTS admin_metrics_coverage (name TEXT PRIMARY KEY,started_day INTEGER NOT NULL);`);
+ const currentDay=Math.floor((clock()+10800000)/86400000)*86400000-10800000;
+ for(const name of ['downloads','payments'])db.prepare('INSERT OR IGNORE INTO admin_metrics_coverage(name,started_day) VALUES (?,?)').run(name,currentDay);
  const secure=production?'; Secure':'';
  let failedLogins=0,loginLocked=false;
  const origin=(req,res,next)=>{const o=req.get('origin');if(o){try{if(new URL(o).host!==req.get('host'))return res.sendStatus(403)}catch{return res.sendStatus(403)}}next()};
@@ -33,7 +36,12 @@ export function setupAdmin(app,db,{clock=Date.now,credential=process.env.ADMIN_C
   const paymentCounts=start=>billing?db.prepare('SELECT COALESCE(SUM(count),0) count,COALESCE(SUM(amount),0) amount FROM billing_payment_days WHERE day>=? AND day<=?').get(start,today):{count:0,amount:0};
   const plans=billing?db.prepare("SELECT COALESCE(SUM(CASE WHEN w.plan='monthly' THEN 1 ELSE 0 END),0) monthly,COALESCE(SUM(CASE WHEN w.plan='yearly' THEN 1 ELSE 0 END),0) yearly FROM billing_wallets w JOIN users u ON u.id=w.user_id WHERE u.archived_at IS NULL AND w.expires>? AND w.remaining>0").get(clock()):{monthly:0,yearly:0};
   const queued=billing?Number(db.prepare('SELECT COUNT(*) n FROM billing_plan_queue q JOIN users u ON u.id=q.user_id WHERE u.archived_at IS NULL').get().n):0;
-  res.json({users:{total:Number(db.prepare('SELECT COUNT(*) n FROM users').get().n),today:count('users','created',today),week:count('users','created',week),month:count('users','created',month)},downloads:{total:downloads(0),today:downloads(today),week:downloads(week),month:downloads(month)},payments:{today:paymentCounts(today),week:paymentCounts(week),month:paymentCounts(month)},subscriptions:{monthly:plans.monthly,yearly:plans.yearly,total:plans.monthly+plans.yearly,queued}});
+  const dayMs=86400000,first=today-29*dayMs,coverage=Object.fromEntries(db.prepare('SELECT name,started_day FROM admin_metrics_coverage').all().map(row=>[row.name,row.started_day]));
+  const series=Array.from({length:30},(_,i)=>{const day=first+i*dayMs;return {day,users:0,downloads:day>=coverage.downloads?0:null,payments:billing&&day>=coverage.payments?0:null}}),byDay=new Map(series.map(item=>[item.day,item]));
+  for(const row of db.prepare('SELECT CAST((created+10800000)/86400000 AS INTEGER)*86400000-10800000 day,COUNT(*) n FROM users WHERE created>=? AND created<? GROUP BY day').all(first,today+dayMs)){const item=byDay.get(row.day);if(item)item.users=Number(row.n)}
+  for(const row of db.prepare('SELECT day,count FROM download_days WHERE day>=? AND day<=?').all(first,today)){const item=byDay.get(row.day);if(item)item.downloads=Number(row.count)}
+  if(billing)for(const row of db.prepare('SELECT day,count FROM billing_payment_days WHERE day>=? AND day<=?').all(first,today)){const item=byDay.get(row.day);if(item)item.payments=Number(row.count)}
+  res.json({users:{total:Number(db.prepare('SELECT COUNT(*) n FROM users').get().n),today:count('users','created',today),week:count('users','created',week),month:count('users','created',month)},downloads:{total:downloads(0),today:downloads(today),week:downloads(week),month:downloads(month)},payments:{today:paymentCounts(today),week:paymentCounts(week),month:paymentCounts(month)},subscriptions:{monthly:plans.monthly,yearly:plans.yearly,total:plans.monthly+plans.yearly,queued},series});
  });
  app.get('/api/admin/clients',auth,(req,res)=>{const page=Math.max(1,Math.min(100000,Number.parseInt(req.query.page,10)||1)),q=typeof req.query.q==='string'?req.query.q.trim().slice(0,254):'',query='%'+q.replace(/[\\%_]/g,'\\$&')+'%',archived=req.query.status==='archived',filter=archived?'IS NOT NULL':'IS NULL';const total=Number(db.prepare(`SELECT COUNT(*) n FROM users WHERE archived_at ${filter} AND email LIKE ? ESCAPE '\\'`).get(query).n);const users=db.prepare(`SELECT u.id,u.email,u.created,u.last_seen,u.archived_at,
  (SELECT COUNT(*) FROM account_assets a WHERE a.user_id=u.id AND json_extract(a.data,'$.kind') IN ('signature','stamp')) signatures,
