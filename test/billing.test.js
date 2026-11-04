@@ -13,8 +13,17 @@ test('daily plan has unlimited downloads for 24 hours',()=>{
  assert.equal('balance' in billing.state('new'),false);
  const id='12345678-1234-1234-1234-123456789012';billing.debit('new',id,'first');assert.equal(billing.debit('new',id,'first').repeated,true);assert.equal(billing.downloads('new'),111);
  assert.throws(()=>billing.debit('new',id,'different'),/другого документа/);
- now+=86400000;assert.throws(()=>billing.debit('new','new-download-request-00001'),/тариф/);
+ now+=86400000;assert.equal(billing.debit('new','new-download-request-00001').kind,'document_free');assert.throws(()=>billing.debit('new','new-download-request-00002'),/тариф/);
  assert.equal('balance' in billing.state('new'),false);db.close();
+});
+
+test('one free download per account is preserved across setup and protected against retries',()=>{
+ const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE users(id TEXT PRIMARY KEY,created INTEGER NOT NULL)');db.prepare('INSERT INTO users VALUES (?,?)').run('u',100);
+ let billing=setupBilling(db,{clock:()=>100});const first='free-download-request-00001';
+ assert.equal(billing.state('u').freeRemaining,1);assert.equal(billing.debit('u',first,'document-a').kind,'document_free');assert.equal(billing.state('u').freeRemaining,0);assert.equal(billing.downloads('u'),1);
+ assert.equal(billing.debit('u',first,'document-a').repeated,true);assert.throws(()=>billing.debit('u',first,'document-b'),/другого документа/);
+ billing=setupBilling(db,{clock:()=>100});assert.equal(billing.state('u').freeRemaining,0);assert.throws(()=>billing.debit('u','free-download-request-00002','document-b'),/тариф/);
+ billing.adjust('u',{plan:'monthly'});assert.equal(billing.debit('u','paid-download-request-00001','document-b').kind,'document_plan');assert.equal(billing.downloads('u'),2);db.close();
 });
 
 test('payment orders validate amount and identity; retries and test payments do not duplicate credit',()=>{

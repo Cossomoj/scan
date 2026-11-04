@@ -69,7 +69,8 @@ export function setupBilling(db,{clock=Date.now}={}) {
   db.prepare("INSERT INTO billing_migrations(name) VALUES ('payment_days_v1')").run();
  });
  const ensure=userId=>{db.prepare('INSERT OR IGNORE INTO billing_wallets(user_id) VALUES (?)').run(userId);return db.prepare('SELECT * FROM billing_wallets WHERE user_id=?').get(userId)};
- const state=userId=>{let w=ensure(userId),active=!!(w.plan&&w.expires>clock()&&(w.plan==='daily'||w.remaining>0));const pending=db.prepare('SELECT COUNT(*) count,COALESCE(SUM(amount),0) amount FROM billing_refunds WHERE user_id=? AND resolved=0 AND test_mode=0').get(userId);if(!active&&!pending.count){const next=db.prepare('SELECT rowid,* FROM billing_plan_queue WHERE user_id=? ORDER BY created,rowid LIMIT 1').get(userId);if(next){const p=PLANS[next.plan];if(!p)throw Error('Некорректный тариф в очереди.');db.prepare('UPDATE billing_wallets SET plan=?,remaining=?,expires=? WHERE user_id=?').run(next.plan,p.documents??0,clock()+p.days*86400000,userId);if(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='yookassa_payments'").get()&&db.prepare('SELECT 1 FROM yookassa_payments WHERE order_id=?').get(next.order_id))db.prepare("INSERT OR IGNORE INTO billing_receipt_jobs(order_id,created) SELECT id,? FROM billing_orders WHERE id=? AND test_mode=0 AND receipt_mode='full_prepayment'").run(clock(),next.order_id);db.prepare('DELETE FROM billing_plan_queue WHERE order_id=?').run(next.order_id);w=ensure(userId);active=true}}const queued=db.prepare('SELECT count(*) n FROM billing_plan_queue WHERE user_id=?').get(userId).n;return {plan:active?w.plan:null,remaining:active?(w.plan==='daily'?null:w.remaining):0,expires:active?w.expires:null,queued,review:pending.count>0,refundPending:pending.amount}};
+ const freeRemaining=userId=>db.prepare("SELECT 1 FROM billing_ledger WHERE user_id=? AND kind='document_free' LIMIT 1").get(userId)?0:1;
+ const state=userId=>{let w=ensure(userId),active=!!(w.plan&&w.expires>clock()&&(w.plan==='daily'||w.remaining>0));const pending=db.prepare('SELECT COUNT(*) count,COALESCE(SUM(amount),0) amount FROM billing_refunds WHERE user_id=? AND resolved=0 AND test_mode=0').get(userId);if(!active&&!pending.count){const next=db.prepare('SELECT rowid,* FROM billing_plan_queue WHERE user_id=? ORDER BY created,rowid LIMIT 1').get(userId);if(next){const p=PLANS[next.plan];if(!p)throw Error('Некорректный тариф в очереди.');db.prepare('UPDATE billing_wallets SET plan=?,remaining=?,expires=? WHERE user_id=?').run(next.plan,p.documents??0,clock()+p.days*86400000,userId);if(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='yookassa_payments'").get()&&db.prepare('SELECT 1 FROM yookassa_payments WHERE order_id=?').get(next.order_id))db.prepare("INSERT OR IGNORE INTO billing_receipt_jobs(order_id,created) SELECT id,? FROM billing_orders WHERE id=? AND test_mode=0 AND receipt_mode='full_prepayment'").run(clock(),next.order_id);db.prepare('DELETE FROM billing_plan_queue WHERE order_id=?').run(next.order_id);w=ensure(userId);active=true}}const queued=db.prepare('SELECT count(*) n FROM billing_plan_queue WHERE user_id=?').get(userId).n;return {plan:active?w.plan:null,remaining:active?(w.plan==='daily'?null:w.remaining):0,freeRemaining:freeRemaining(userId),expires:active?w.expires:null,queued,review:pending.count>0,refundPending:pending.amount}};
  const stateTransaction=userId=>{db.exec('SAVEPOINT billing_state');try{const result=state(userId);db.exec('RELEASE billing_state');return result}catch(error){db.exec('ROLLBACK TO billing_state; RELEASE billing_state');throw error}};
  const debit=(userId,requestId,fingerprint='')=>transaction(()=>{
   if(!/^[a-zA-Z0-9-]{16,80}$/.test(requestId||''))throw Error('Некорректный идентификатор операции.');
@@ -78,7 +79,8 @@ export function setupBilling(db,{clock=Date.now}={}) {
   if(stateTransaction(userId).review){const e=Error('Операция приостановлена после возврата. Обратитесь в поддержку.');e.code='REFUND_REVIEW';throw e}
   const w=ensure(userId);let kind;
   if(w.plan&&w.expires>clock()&&(w.plan==='daily'||w.remaining>0)){kind='document_plan';if(w.plan!=='daily')db.prepare('UPDATE billing_wallets SET remaining=remaining-1 WHERE user_id=?').run(userId)}
-  else {const e=Error('Для скачивания выберите тариф.');e.code='INSUFFICIENT_FUNDS';throw e}
+  else if(freeRemaining(userId))kind='document_free';
+  else {const e=Error('Бесплатное скачивание уже использовано. Выберите тариф, чтобы скачать документ.');e.code='INSUFFICIENT_FUNDS';throw e}
   db.prepare('INSERT INTO billing_ledger VALUES (?,?,?,?,?,?,?)').run(randomUUID(),userId,clock(),kind,0,fingerprint,requestId);
   return {kind,...stateTransaction(userId),repeated:false};
  });
@@ -106,7 +108,7 @@ export function setupBilling(db,{clock=Date.now}={}) {
   return {repeated:false,...stateTransaction(userId)};
  });
  const getOrder=(id,userId)=>{const o=db.prepare('SELECT id,kind,amount,status FROM billing_orders WHERE id=? AND user_id=?').get(id,userId);return o||null};
- const downloads=userId=>Number(db.prepare("SELECT COUNT(*) n FROM billing_ledger WHERE user_id=? AND kind='document_plan'").get(userId).n);
+ const downloads=userId=>Number(db.prepare("SELECT COUNT(*) n FROM billing_ledger WHERE user_id=? AND kind IN ('document_plan','document_free')").get(userId).n);
  const refund=(paymentTransactionId,refundTransactionId,amount)=>transaction(()=>{
   const validId=value=>/^(?:\d{1,30}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(value||'');
   if(!validId(paymentTransactionId)||!validId(refundTransactionId)||!Number.isSafeInteger(amount)||amount<=0)throw Error('Некорректные данные возврата.');

@@ -23,7 +23,7 @@ export default function ProfilePanel({user,onAdd}){
    <div className="profile-contact"><span>Почта для связи</span><strong className="ym-hide-content">{user.email}</strong><p>На эту почту приходят коды для входа и чеки об оплате.</p></div>
   </header>
   <div className="profile-summary">
-   <div><strong>{billing?.downloads??'—'}</strong><span>скачиваний по тарифу</span></div>
+   <div><strong>{billing?.downloads??'—'}</strong><span>скачиваний документов</span></div>
    <div><strong>{assets?.length??'—'}</strong><span>подписей и печатей</span></div>
   </div>
   <div className="profile-main">

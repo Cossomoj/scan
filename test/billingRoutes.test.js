@@ -22,3 +22,11 @@ test('paid mode stays unavailable until payment settings are verified',async()=>
  try{assert.equal((await(await fetch(url)).json()).enabled,false);settings={mode:'live',verified:true};const status=await(await fetch(url)).json();assert.equal(status.enabled,true);assert.equal(status.testMode,false)}
  finally{server.closeAllConnections();await new Promise(r=>server.close(r));db.close()}
 });
+
+test('free export is consumed only after successful render, then prompts for a tariff',async()=>{
+ const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE users(id TEXT PRIMARY KEY,created INTEGER NOT NULL)');const billing=setupBilling(db);db.prepare('INSERT INTO users VALUES (?,?)').run('u',Date.now());
+ let fail=true;const app=express(),accounts={sameOrigin:(_q,_s,n)=>n(),session:()=>({id:'u'}),requireSession:(req,_res,next)=>{req.user={id:'u'};next()}};
+ setupBillingRoutes(app,{billing,accounts,enabled:true,render:async()=>{if(fail)throw Error('render failed');return Buffer.from('%PDF-output')}});const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const root=`http://127.0.0.1:${server.address().port}`;
+ const pdf=await PDFDocument.create();pdf.addPage();const bytes=await pdf.save();const request=async id=>{const form=new FormData();form.append('document',new Blob([bytes]),'test.pdf');form.append('items','[]');form.append('filters','{}');form.append('requestId',id);return fetch(root+'/api/billing/export',{method:'POST',body:form})};
+ try{const first='free-download-request-00001';assert.equal((await request(first)).status,400);assert.equal(billing.state('u').freeRemaining,1);fail=false;assert.equal((await request(first)).status,200);assert.equal((await request(first)).status,200);assert.equal(billing.downloads('u'),1);const next=await request('free-download-request-00002');assert.equal(next.status,402);assert.match((await next.json()).error,/тариф/)}finally{server.closeAllConnections();await new Promise(r=>server.close(r));db.close()}
+});

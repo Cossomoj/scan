@@ -5,6 +5,7 @@ import './account.css';
 import ProfilePanel from './ProfilePanel.jsx';
 import SignatureWizard from './SignatureWizard.jsx';
 import {defaultAnalyticsToDenied} from './metrika.js';
+import {planLabel,useBillingStatus} from './Billing.jsx';
 
 const Context=createContext(null);
 const plural=new Intl.PluralRules('ru-RU');
@@ -28,12 +29,12 @@ export function AccountProvider({children}){
  useEffect(()=>{if(!open)return;document.body.classList.add('account-dialog-open');return()=>document.body.classList.remove('account-dialog-open')},[open]);
  useEffect(()=>{let alive=true;request('session').then(data=>{if(alive){if(data.user)defaultAnalyticsToDenied();setAvailable(data.available);setAccount(data.user);window.dispatchEvent(new Event('account-session-resolved'))}}).catch(()=>{if(alive){setAccount(null);setNotice('Не удалось проверить вход в аккаунт.');window.dispatchEvent(new Event('account-session-resolved'))}});return()=>{alive=false}},[]);
  useEffect(()=>{let alive=true;setLocalItems([]);if(user)Promise.all([listLocalSignatures(),listSignatures()]).then(([local,remote])=>{if(alive){const known=new Set(remote.map(item=>item.id));setLocalItems(local.filter(item=>!known.has(item.id)))}}).catch(()=>{});return()=>{alive=false}},[user]);
- const logout=async()=>{setBusy(true);setNotice('');try{await request('logout',{});setAccount(null);setOpen(false)}catch(e){setNotice(e.message)}finally{setBusy(false)}};
+ const logout=async()=>{setBusy(true);setNotice('');try{await request('logout',{});setAccount(null);window.dispatchEvent(new Event('account-session-resolved'));setOpen(false)}catch(e){setNotice(e.message)}finally{setBusy(false)}};
  const importLocal=async()=>{setBusy(true);setNotice('');try{const count=await importLocalSignatures();setLocalItems([]);setNotice(count?'Готово. Теперь сохранённое доступно в вашем профиле на других устройствах.':'Всё, что сохранено в этом браузере, уже есть в профиле.');window.dispatchEvent(new Event('account-assets-changed'))}catch(e){setNotice(e.message)}finally{setBusy(false)}};
  return <Context.Provider value={{user,available,openAccount}}>{children}{open&&<AccountDialog user={user} available={available} onClose={()=>setOpen(false)} onSuccess={u=>{defaultAnalyticsToDenied();setAccount(u);window.dispatchEvent(new Event('account-session-resolved'));setNotice('Вы вошли в профиль.')}} logout={logout} importLocal={importLocal} localItems={localItems} notice={notice} busy={busy}/>}</Context.Provider>;
 }
 export const useAccount=()=>useContext(Context);
-export function AccountButton({className=''}){const {user,openAccount}=useAccount();return <button type="button" className={'account-trigger '+className} onClick={openAccount}>{user?<>Мой профиль <span className="account-email ym-hide-content">{user.email}</span></>:'Войти'}</button>}
+export function AccountButton({className=''}){const {user,openAccount}=useAccount(),[status]=useBillingStatus();return <button type="button" className={'account-trigger '+className} onClick={openAccount}>{user?<>Мой профиль <span className="account-email ym-hide-content">{user.email}</span>{status?.user&&<span className="account-plan">{planLabel(status.user)}</span>}</>:'Войти'}</button>}
 function AccountDialog({user,available,onClose,onSuccess,logout,importLocal,localItems,notice,busy}){
  const [email,setEmail]=useState(''),[code,setCode]=useState(''),[consent,setConsent]=useState(false),[step,setStep]=useState('email'),[working,setWorking]=useState(false),[error,setError]=useState(''),[justSignedIn,setJustSignedIn]=useState(false),[wizardOpen,setWizardOpen]=useState(false),dialog=useRef(null);
  useEffect(()=>{if(user||!available)dialog.current?.querySelector('.account-close')?.focus()},[user,available]);
