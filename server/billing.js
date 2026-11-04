@@ -101,6 +101,7 @@ export function setupBilling(db,{clock=Date.now}={}) {
   return {repeated:false,...stateTransaction(userId)};
  });
  const getOrder=(id,userId)=>{const o=db.prepare('SELECT id,kind,amount,status FROM billing_orders WHERE id=? AND user_id=?').get(id,userId);return o||null};
+ const downloads=userId=>Number(db.prepare("SELECT COUNT(*) n FROM billing_ledger WHERE user_id=? AND kind='document_plan'").get(userId).n);
  const refund=(paymentTransactionId,refundTransactionId,amount)=>transaction(()=>{
   const validId=value=>/^(?:\d{1,30}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(value||'');
   if(!validId(paymentTransactionId)||!validId(refundTransactionId)||!Number.isSafeInteger(amount)||amount<=0)throw Error('Некорректные данные возврата.');
@@ -112,5 +113,5 @@ export function setupBilling(db,{clock=Date.now}={}) {
   db.prepare('INSERT INTO billing_ledger VALUES (?,?,?,?,?,?,?)').run(randomUUID(),o.user_id,clock(),'refund_review',0,'Возврат '+amount+' коп.','refund:'+refundTransactionId);
   return {repeated:false,testMode:!!o.test_mode};
  });
- return {state:stateTransaction,debit,adjust,order,complete,getOrder,refund};
+ return {state:stateTransaction,debit,adjust,order,complete,getOrder,refund,downloads};
 }

@@ -8,7 +8,7 @@ export function setupBillingRoutes(app,{billing,accounts,paymentSettings,enabled
  let rendering=false;
  app.use('/api/billing',accounts.sameOrigin);
  const active=()=>enabled&&(!paymentSettings||!!paymentSettings.get()?.verified);
- app.get('/api/billing/status',(req,res)=>{const user=accounts.session(req),settings=paymentSettings?.get();res.json({enabled:active(),testMode:settings?settings.mode==='test':!paymentSettings&&enabled,user:user?billing.state(user.id):null})});
+ app.get('/api/billing/status',(req,res)=>{const user=accounts.session(req),settings=paymentSettings?.get();res.json({enabled:active(),testMode:settings?settings.mode==='test':!paymentSettings&&enabled,user:user?billing.state(user.id):null,downloads:user?billing.downloads(user.id):null})});
  app.post('/api/billing/export',accounts.requireSession,(req,res,next)=>{
   if(!active())return res.status(503).json({error:'Платное скачивание ещё не подключено.'});
   if(rendering)return res.status(503).json({error:'Сервис занят. Повторите попытку через несколько секунд.'});

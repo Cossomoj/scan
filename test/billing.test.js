@@ -9,8 +9,9 @@ test('daily plan has unlimited downloads for 24 hours',()=>{
  assert.equal('balance' in billing.state('new'),false);billing.adjust('new',{plan:'daily'});
  assert.equal(billing.state('new').plan,'daily');assert.equal(billing.state('new').remaining,null);
  for(let i=0;i<110;i++)billing.debit('new','download-request-'+String(i).padStart(8,'0'));
+ assert.equal(billing.downloads('new'),110);
  assert.equal('balance' in billing.state('new'),false);
- const id='12345678-1234-1234-1234-123456789012';billing.debit('new',id,'first');assert.equal(billing.debit('new',id,'first').repeated,true);
+ const id='12345678-1234-1234-1234-123456789012';billing.debit('new',id,'first');assert.equal(billing.debit('new',id,'first').repeated,true);assert.equal(billing.downloads('new'),111);
  assert.throws(()=>billing.debit('new',id,'different'),/другого документа/);
  now+=86400000;assert.throws(()=>billing.debit('new','new-download-request-00001'),/тариф/);
  assert.equal('balance' in billing.state('new'),false);db.close();

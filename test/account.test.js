@@ -28,6 +28,7 @@ test('email login protects accounts, expires codes, isolates saved items and hon
   assert.equal((await post('verify',{email:'alice@example.com',code:outbox[0].code==='000000'?'000001':'000000'})).status,400);
   let r=await post('verify',{email:'alice@example.com',code:outbox[0].code});assert.equal(r.status,200);const alice=r.headers.get('set-cookie');assert.match(alice,/HttpOnly/);assert.match(alice,/SameSite=Strict/);assert.match(alice,/Secure/);
   assert.equal(db.prepare('SELECT verified_at FROM consent_records').get().verified_at,time);
+  assert.equal((await r.json()).user.created,time);
   const aliceId=db.prepare('SELECT id FROM users WHERE email=?').get('alice@example.com').id;assert.equal('balance' in billing.state(aliceId),false);
   assert.equal((await post('verify',{email:'alice@example.com',code:outbox[0].code})).status,400);
   assert.equal('balance' in billing.state(aliceId),false);
