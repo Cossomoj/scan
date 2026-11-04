@@ -17,6 +17,7 @@ const maxAge=30*24*60*60*1000,codeAge=10*60*1000;
 const validPng=value=>typeof value==='string'&&value.length<=1400000&&/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value)&&Buffer.from(value.slice(22,38),'base64').subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
 
 export function setupAccounts(app,db,{dataDir,sendMail,production=process.env.NODE_ENV==='production',clock=Date.now}={}){
+ let billing=null;
  db.exec(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY,email TEXT NOT NULL UNIQUE,created INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS account_codes (email TEXT PRIMARY KEY,code_hash TEXT NOT NULL,created INTEGER NOT NULL,expires INTEGER NOT NULL,attempts INTEGER NOT NULL DEFAULT 0);
  CREATE TABLE IF NOT EXISTS account_sessions (token_hash TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,expires INTEGER NOT NULL);
@@ -55,10 +56,16 @@ export function setupAccounts(app,db,{dataDir,sendMail,production=process.env.NO
  app.get('/api/account/assets',requireSession,(req,res)=>res.json({items:db.prepare('SELECT data FROM account_assets WHERE user_id=? ORDER BY updated').all(req.user.id).map(x=>JSON.parse(x.data))}));
  app.put('/api/account/assets/:id',requireSession,(req,res)=>{const x=req.body;if(!x||x.id!==req.params.id||! /^[a-z0-9-]{1,80}$/i.test(x.id)||!['signature','stamp','text'].includes(x.kind)||typeof x.name!=='string'||x.name.length>200||![x.widthMm,x.heightMm].every(v=>typeof v==='number'&&Number.isFinite(v)&&v>0&&v<=1000))return res.status(400).json({error:'Некорректная заготовка.'});
   if(x.kind==='text'){if(typeof x.text!=='string'||!x.text.trim()||x.text.length>200||!/^#[0-9a-f]{6}$/i.test(x.color))return res.status(400).json({error:'Некорректный текст.'})}else if(!validPng(x.image)||!validPng(x.sourceImage||x.image))return res.status(400).json({error:'Некорректное изображение.'});
-  const count=db.prepare('SELECT COUNT(*) n,COALESCE(SUM(length(data)),0) size FROM account_assets WHERE user_id=? AND id<>?').get(req.user.id,x.id),data=JSON.stringify(x);if(count.n>=100||count.size+data.length>25*1024*1024)return res.status(413).json({error:'Достигнут лимит хранилища: 100 заготовок или 25 МБ.'});
+  if(billing&&['signature','stamp'].includes(x.kind)){
+   const existing=db.prepare('SELECT data FROM account_assets WHERE user_id=? AND id=?').get(req.user.id,x.id);
+   const wasSignature=existing&&['signature','stamp'].includes(JSON.parse(existing.data).kind);
+   const limit=billing.state(req.user.id).signatureLimit;
+   if(!wasSignature){const count=db.prepare("SELECT COUNT(*) n FROM account_assets WHERE user_id=? AND json_extract(data,'$.kind') IN ('signature','stamp')").get(req.user.id).n;if(count>=limit)return res.status(409).json({error:`По вашему тарифу можно сохранить до ${limit} подписей и печатей. Удалите ненужную или выберите другой тариф.`})}
+  }
+  const count=db.prepare('SELECT COUNT(*) n,COALESCE(SUM(length(data)),0) size FROM account_assets WHERE user_id=? AND id<>?').get(req.user.id,x.id),data=JSON.stringify(x);if(count.n>=200||count.size+data.length>25*1024*1024)return res.status(413).json({error:'Достигнут лимит хранилища: 200 заготовок или 25 МБ.'});
   db.prepare('INSERT INTO account_assets VALUES (?,?,?,?) ON CONFLICT(user_id,id) DO UPDATE SET data=excluded.data,updated=excluded.updated').run(req.user.id,x.id,data,clock());res.json({ok:true});
  });
  app.delete('/api/account/assets/:id',requireSession,(req,res)=>{db.prepare('DELETE FROM account_assets WHERE user_id=? AND id=?').run(req.user.id,req.params.id);res.json({ok:true})});
  const cleanup=()=>{const time=clock();db.prepare('DELETE FROM account_codes WHERE expires<?').run(time);db.prepare('DELETE FROM account_sessions WHERE expires<?').run(time);db.prepare('DELETE FROM account_rate WHERE created<?').run(time-86400000)};cleanup();setInterval(cleanup,3600000).unref();
- return {session,requireSession,sameOrigin,recordConsent};
+ return {session,requireSession,sameOrigin,recordConsent,setBilling:value=>{billing=value}};
 }

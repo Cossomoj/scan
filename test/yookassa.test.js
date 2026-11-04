@@ -22,8 +22,8 @@ test('test payments are verified with YooKassa, idempotent and never affect the 
  setupYooKassa(app,{db,billing,paymentSettings:{get:()=>settings},accounts,enabled:true,clientFor});const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const root=`http://127.0.0.1:${server.address().port}`;
  const post=(path,body)=>fetch(root+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
  try{
-  settings={shopId:'123456',mode:'live',secret:'live_example',verified:false};assert.equal((await post('/api/billing/orders',{kind:'daily',amount:5000})).status,503);assert.equal(requests,0);
-  settings={shopId:'123456',mode:'test',secret:'test_example'};const created=await post('/api/billing/orders',{kind:'daily',amount:5000});assert.equal(created.status,200);const order=await created.json();assert.equal(order.confirmationUrl,'https://yookassa.ru/checkout');
+  settings={shopId:'123456',mode:'live',secret:'live_example',verified:false};assert.equal((await post('/api/billing/orders',{kind:'daily',amount:5000,termsVersion:2})).status,503);assert.equal(requests,0);
+  settings={shopId:'123456',mode:'test',secret:'test_example'};assert.equal((await post('/api/billing/orders',{kind:'daily'})).status,409);assert.equal(requests,0);const created=await post('/api/billing/orders',{kind:'daily',amount:5000,termsVersion:2});assert.equal(created.status,200);const order=await created.json();assert.equal(order.confirmationUrl,'https://yookassa.ru/checkout');
   const notification={type:'notification',event:'payment.succeeded',object:{id:payment.id,status:'succeeded',paid:true}};
   assert.equal((await post('/api/yookassa/webhook',notification)).status,200);assert.equal(billing.getOrder(order.orderId,'u').status,'pending');
   payment={...payment,status:'succeeded',paid:true,amount:{value:'51.00',currency:'RUB'}};assert.equal((await post('/api/yookassa/webhook',notification)).status,503);assert.equal(billing.getOrder(order.orderId,'u').status,'pending');
@@ -55,7 +55,7 @@ test('legacy prepayment is reconciled exactly once and settlement receipt surviv
  const post=(path,body)=>fetch(url+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
  try{
   const legacy=billing.order('u','daily');db.prepare("UPDATE billing_orders SET receipt_mode='full_prepayment' WHERE id=?").run(legacy.id);
-  assert.equal((await post('/api/billing/orders',{kind:'daily'})).status,503);assert.equal((await post('/api/billing/orders',{kind:'daily'})).status,200);
+  assert.equal((await post('/api/billing/orders',{kind:'daily',termsVersion:2})).status,503);assert.equal((await post('/api/billing/orders',{kind:'daily',termsVersion:2})).status,200);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM billing_orders').get().n,1);
   payment={...payment,status:'succeeded',paid:true,receipt_registration:'succeeded'};const n={type:'notification',event:'payment.succeeded',object:{id:payment.id}};
   assert.equal((await post('/api/yookassa/webhook',n)).status,200);assert.equal((await post('/api/yookassa/webhook',n)).status,200);
@@ -79,7 +79,7 @@ test('live full payment produces no settlement receipt, including after retries'
  const processor=setupYooKassa(app,{db,billing,paymentSettings:{get:()=>settings},accounts,enabled:true,clientFor});const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const url=`http://127.0.0.1:${server.address().port}`;
  const post=(path,body)=>fetch(url+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
  try{
-  assert.equal((await post('/api/billing/orders',{kind:'daily'})).status,200);assert.equal((await post('/api/billing/orders',{kind:'daily'})).status,200);assert.equal(paymentCalls,2);
+  assert.equal((await post('/api/billing/orders',{kind:'daily',termsVersion:2})).status,200);assert.equal((await post('/api/billing/orders',{kind:'daily',termsVersion:2})).status,200);assert.equal(paymentCalls,2);
   payment={...payment,status:'succeeded',paid:true,receipt_registration:'succeeded'};const n={type:'notification',event:'payment.succeeded',object:{id:payment.id}};
   assert.equal((await post('/api/yookassa/webhook',n)).status,200);assert.equal((await post('/api/yookassa/webhook',n)).status,200);await processor.processPending();
   assert.equal(billing.state('u').plan,'daily');assert.equal(db.prepare('SELECT COUNT(*) n FROM billing_receipt_jobs').get().n,0);assert.equal(receiptCalls,0);

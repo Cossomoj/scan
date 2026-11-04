@@ -36,6 +36,7 @@ setupSignatureProcessor(app,{sameOrigin:accounts.sameOrigin});
 setupPrivacy(app,db);
 setupFeedback(app,{recordConsent:accounts.recordConsent});
 const billing=setupBilling(db);
+accounts.setBilling(billing);
 const paymentSettings=setupPaymentSettings(db,dataDir);
 let checkingPaymentSettings=false;
 const verifyExistingPaymentSettings=async()=>{

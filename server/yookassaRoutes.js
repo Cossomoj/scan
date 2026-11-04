@@ -1,4 +1,5 @@
 import {createYooClient,createTestPaymentPayload,createSettlementReceipt,matchesYooPayment,parseYooAmount,safeConfirmationUrl,validYooId} from './yookassa.js';
+import {CURRENT_TERMS_VERSION} from './billing.js';
 
 export function setupYooKassa(app,{db,billing,paymentSettings,accounts,enabled=process.env.BILLING_ENABLED==='1',clientFor=createYooClient}) {
  db.exec(`CREATE TABLE IF NOT EXISTS yookassa_payments (order_id TEXT PRIMARY KEY REFERENCES billing_orders(id) ON DELETE CASCADE, payment_id TEXT NOT NULL UNIQUE, shop_id TEXT NOT NULL)`);
@@ -20,6 +21,7 @@ export function setupYooKassa(app,{db,billing,paymentSettings,accounts,enabled=p
  };
  app.post('/api/billing/orders',accounts.requireSession,async(req,res)=>{
   if(!enabled)return res.status(503).json({error:'Оплата пока недоступна.'});
+  if(req.body?.termsVersion!==CURRENT_TERMS_VERSION)return res.status(409).json({error:'Условия тарифов обновились. Обновите страницу и выберите тариф ещё раз.'});
   const settings=settingsForPayment();if(!settings)return res.status(503).json({error:'Оплата пока не настроена.'});
   let order;
   try{

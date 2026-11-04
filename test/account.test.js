@@ -46,3 +46,22 @@ test('email login protects accounts, expires codes, isolates saved items and hon
   assert.equal((await post('code',{email:'alice@example.com'})).status,200);const latest=outbox.at(-1).code;for(let i=0;i<5;i++)assert.equal((await post('verify',{email:'alice@example.com',code:latest==='000000'?'000001':'000000'})).status,400);assert.equal((await post('verify',{email:'alice@example.com',code:latest})).status,400);
  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));db.close();await rm(dir,{recursive:true,force:true})}
 });
+
+test('signature and stamp limits follow the plan without deleting existing assets',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'account-limits-')),db=new DatabaseSync(':memory:'),outbox=[];let time=1700000000000;
+ const app=express();app.use(express.json({limit:'4mb'}));const accounts=setupAccounts(app,db,{dataDir:dir,sendMail:async(to,code)=>outbox.push({to,code}),clock:()=>time});const billing=setupBilling(db,{clock:()=>time});accounts.setBilling(billing);
+ const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));const root=`http://127.0.0.1:${server.address().port}`;
+ const post=(path,body)=>fetch(root+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ try{
+  await post('/api/account/code',{email:'limits@example.com',consent:true,consentVersion:'2026-11-03-account-v1'});const login=await post('/api/account/verify',{email:'limits@example.com',code:outbox[0].code});const cookie=login.headers.get('set-cookie');const id=db.prepare("SELECT id FROM users WHERE email='limits@example.com'").get().id;
+  const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
+  const item=(i,kind='signature')=>({id:'image-'+i,kind,name:'Образец',widthMm:50,heightMm:20,image:png,sourceImage:png});
+  const save=x=>fetch(root+'/api/account/assets/'+x.id,{method:'PUT',headers:{'Content-Type':'application/json',cookie},body:JSON.stringify(x)});
+  assert.equal(billing.state(id).signatureLimit,1);assert.equal((await save(item(1))).status,200);assert.equal((await save(item(2,'stamp'))).status,409);assert.equal((await save({...item(1),name:'Изменённая'})).status,200);
+  assert.equal((await save({id:'text-1',kind:'text',name:'Текст',text:'Текст',color:'#17233b',widthMm:50,heightMm:10})).status,200);
+  billing.adjust(id,{plan:'monthly'});assert.equal(billing.state(id).signatureLimit,20);for(let i=2;i<=20;i++)assert.equal((await save(item(i,i%2?'signature':'stamp'))).status,200);
+  assert.equal((await save(item(21))).status,409);billing.adjust(id,{plan:'yearly'});assert.equal(billing.state(id).signatureLimit,100);for(let i=21;i<=100;i++)assert.equal((await save(item(i))).status,200);assert.equal((await save(item(101))).status,409);
+  billing.adjust(id,{plan:null});assert.equal(billing.state(id).signatureLimit,1);assert.equal((await save({...item(21),name:'Исправлено'})).status,200);assert.equal((await save(item(101))).status,409);
+  const items=(await(await fetch(root+'/api/account/assets',{headers:{cookie}})).json()).items;assert.equal(items.length,101);assert.ok(items.some(x=>x.id==='image-21'&&x.name==='Исправлено'));
+ }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));db.close();await rm(dir,{recursive:true,force:true})}
+});
