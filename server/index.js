@@ -1,10 +1,9 @@
 import express from 'express';
 import multer from 'multer';
 import { DatabaseSync } from 'node:sqlite';
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { PDFDocument, degrees } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 import {setupAccounts} from './account.js';
 import {setupAdmin} from './admin.js';
 import {setupBilling} from './billing.js';
@@ -57,19 +56,8 @@ setInterval(schedulePaymentSettingsCheck,300000).unref();
 setupAdmin(app,db,{billing,paymentSettings});
 setupBillingRoutes(app,{billing,accounts,paymentSettings});
 setupYooKassa(app,{db,billing,paymentSettings,accounts});
-const upload = multer({storage:multer.memoryStorage(),limits:{fileSize:20*1024*1024, files:1, fields:3}});
 const officeUpload = multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024,files:1,fields:0}});
-const hash = (s) => createHash('sha256').update(s).digest('hex');
-const token = () => randomBytes(32).toString('base64url');
-const bearer = (req) => /^Bearer ([A-Za-z0-9_-]{43})$/.exec(req.get('authorization') || '')?.[1] || '';
 const now = () => Date.now();
-const cleanName = (s, max=120) => typeof s === 'string' ? s.trim().replace(/[\u0000-\u001f\u007f]/g,'').slice(0,max) : '';
-const getRequest = (id) => db.prepare('SELECT * FROM requests WHERE id=? AND expires>?').get(id,now());
-const ownerAuth = (req) => { const r=getRequest(req.params.id); return r && hash(bearer(req))===r.owner_hash ? r : null; };
-const signerAuth = (req) => { const r=getRequest(req.params.id); if(!r) return null; const s=db.prepare('SELECT * FROM signers WHERE request_id=? AND token_hash=?').get(r.id,hash(bearer(req))); return s ? {r,s} : null; };
-const active = (s) => !s.signed && !db.prepare('SELECT id FROM signers WHERE request_id=? AND position<? AND signed IS NULL').get(s.request_id,s.position);
-const info = (r) => ({id:r.id,name:r.name,created:r.created,expires:r.expires,signers:db.prepare('SELECT position,name,signed FROM signers WHERE request_id=? ORDER BY position').all(r.id)});
-const validatePdf = async (bytes) => { if (!bytes || bytes.length < 5 || Buffer.from(bytes).subarray(0,5).toString() !== '%PDF-') throw new Error('Выберите корректный PDF-файл.'); const pdf=await PDFDocument.load(bytes); if(!pdf.getPageCount() || pdf.getPageCount()>100) throw new Error('Поддерживается до 100 страниц.'); if(pdf.getPages().some(p => {const c=p.getCropBox(),m=p.getMediaBox();return p.getRotation().angle % 360 !== 0 || m.x!==0 || m.y!==0 || c.x!==m.x || c.y!==m.y || c.width!==m.width || c.height!==m.height;})) throw new Error('Повернутые или обрезанные страницы пока не поддерживаются.'); return pdf; };
 app.get('/api/health', (_req,res) => res.json({ok:true}));
 const conversionBuckets = new Map();
 let conversionInProgress=false;
@@ -89,27 +77,6 @@ app.post('/api/convert', (req,res,next)=>{const t=Date.now();let b=conversionBuc
   }catch{return res.status(503).json({error:'Не удалось преобразовать файл. Проверьте документ и попробуйте ещё раз.'})}
 });
 setInterval(()=>{const t=Date.now();for(const [ip,b] of conversionBuckets)if(b.until<t)conversionBuckets.delete(ip)},60000).unref();
-app.post('/api/requests', upload.single('file'), async (req,res,next) => { try {
-  const names=JSON.parse(req.body.signers || '[]'); if(!Array.isArray(names)||names.length<1||names.length>10) return res.status(400).json({error:'Укажите от 1 до 10 подписантов.'});
-  const signers=names.map(x=>cleanName(x,80)); if(signers.some(x=>!x)) return res.status(400).json({error:'Укажите имя каждого подписанта.'});
-  if(Number(db.prepare('SELECT COALESCE(SUM(length(pdf)),0) AS bytes FROM requests').get().bytes)+(req.file?.size||0)>1024*1024*1024)return res.status(503).json({error:'Хранилище заполнено. Попробуйте позже.'});
-  await validatePdf(req.file?.buffer); const id=randomUUID(), owner=token(), created=now(), expires=created+7*86400000;
-  const links=signers.map((name,position)=>({name,position,id:randomUUID(),token:token()}));
-  db.exec('BEGIN IMMEDIATE'); try { db.prepare('INSERT INTO requests VALUES (?,?,?,?,?,?)').run(id,hash(owner),cleanName(req.file.originalname)||'document.pdf',req.file.buffer,created,expires); const add=db.prepare('INSERT INTO signers (id,request_id,position,name,token_hash) VALUES (?,?,?,?,?)'); for(const s of links) add.run(s.id,id,s.position,s.name,hash(s.token)); db.exec('COMMIT'); } catch(e) {db.exec('ROLLBACK'); throw e;}
-  res.status(201).json({id,owner,expires,signers:links.map(({name,token})=>({name,token}))});
-} catch(e) {next(e)} });
-app.get('/api/requests/:id/owner', (req,res) => {const r=ownerAuth(req); if(!r)return res.sendStatus(404); res.json(info(r));});
-const chargeRemoteDownload=(req,res,pdf)=>{if(process.env.BILLING_ENABLED!=='1')return true;const user=accounts.session(req);if(!user){res.status(401).json({error:'Войдите в профиль, чтобы скачать документ.'});return false}try{billing.debit(user.id,req.get('X-Download-Id'),createHash('sha256').update(pdf).digest('hex'));return true}catch(e){res.status(e.code==='INSUFFICIENT_FUNDS'?402:400).json({error:e.message});return false}};
-app.get('/api/requests/:id/owner/pdf', (req,res) => {const r=ownerAuth(req); if(!r)return res.sendStatus(404); if(!chargeRemoteDownload(req,res,r.pdf))return;res.type('application/pdf').send(Buffer.from(r.pdf));});
-app.get('/api/requests/:id/sign', (req,res) => {const auth=signerAuth(req); if(!auth)return res.sendStatus(404); res.json({...info(auth.r),signer:auth.s.name,completed:!!auth.s.signed,ready:active(auth.s)});});
-app.get('/api/requests/:id/sign/pdf', (req,res) => {const a=signerAuth(req); if(!a)return res.sendStatus(404); if(!a.s.signed&&!active(a.s))return res.status(409).json({error:'Документ пока недоступен для подписи.'});if(a.s.signed&&!chargeRemoteDownload(req,res,a.r.pdf))return; res.type('application/pdf').send(Buffer.from(a.r.pdf));});
-app.post('/api/requests/:id/sign', async (req,res,next) => {try {
- const a=signerAuth(req); if(!a)return res.sendStatus(404); if(!active(a.s))return res.status(409).json({error:'Документ уже подписан или ожидает другого участника.'});
- const {page,x,y,width,height,image}=req.body; if(!Number.isInteger(page)||![x,y,width,height].every(Number.isFinite)||x<0||y<0||width<=0||height<=0||x+width>1.0001||y+height>1.0001||typeof image!=='string'||!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(image)) return res.status(400).json({error:'Некорректное поле подписи.'});
- const img=Buffer.from(image.split(',')[1],'base64'); if(img.length>1024*1024)return res.status(400).json({error:'Изображение подписи слишком большое.'});
- const pdf=await validatePdf(a.r.pdf); const p=pdf.getPages()[page]; if(!p)return res.status(400).json({error:'Страница не найдена.'}); const embedded=await pdf.embedPng(img); const {width:pw,height:ph}=p.getSize(); p.drawImage(embedded,{x:x*pw,y:(1-y-height)*ph,width:width*pw,height:height*ph,rotate:degrees(0)}); const output=await pdf.save();
- db.exec('BEGIN IMMEDIATE'); try { const fresh=db.prepare('SELECT signed FROM signers WHERE id=?').get(a.s.id); if(fresh.signed || !active(a.s)) {db.exec('ROLLBACK'); return res.status(409).json({error:'Статус документа изменился.'});} db.prepare('UPDATE requests SET pdf=? WHERE id=?').run(output,a.r.id); db.prepare('UPDATE signers SET signed=? WHERE id=?').run(now(),a.s.id); db.exec('COMMIT'); } catch(e) {db.exec('ROLLBACK'); throw e;} res.json({ok:true});
-} catch(e) {next(e)} });
 app.use('/api',(_req,res)=>res.status(404).json({error:'Не найдено.'}));
 app.use(express.static(resolve('dist'),{index:'index.html',maxAge:'1h'}));
 app.get('/{*path}',(_req,res)=>res.sendFile(resolve('dist/index.html')));
