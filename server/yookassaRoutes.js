@@ -3,6 +3,7 @@ import {CURRENT_TERMS_VERSION} from './billing.js';
 
 export function setupYooKassa(app,{db,billing,paymentSettings,accounts,enabled=process.env.BILLING_ENABLED==='1',clientFor=createYooClient}) {
  db.exec(`CREATE TABLE IF NOT EXISTS yookassa_payments (order_id TEXT PRIMARY KEY REFERENCES billing_orders(id) ON DELETE CASCADE, payment_id TEXT NOT NULL UNIQUE, shop_id TEXT NOT NULL)`);
+ db.exec(`CREATE TABLE IF NOT EXISTS yookassa_refund_sync (shop_id TEXT PRIMARY KEY, cursor TEXT, last_completed INTEGER, last_error INTEGER)`);
  if(!db.prepare('PRAGMA table_info(yookassa_payments)').all().some(column=>column.name==='receipt_status'))db.exec('ALTER TABLE yookassa_payments ADD COLUMN receipt_status TEXT');
  const settingsForPayment=()=>{const s=paymentSettings.get();return s&&s.verified!==false&&['test','live'].includes(s.mode)&&s.secret.startsWith(s.mode+'_')?s:null};
  const findOrder=id=>db.prepare('SELECT * FROM billing_orders WHERE id=?').get(id);
@@ -18,6 +19,37 @@ export function setupYooKassa(app,{db,billing,paymentSettings,accounts,enabled=p
   if(['pending','succeeded','canceled'].includes(payment.receipt_registration))db.prepare('UPDATE yookassa_payments SET receipt_status=? WHERE order_id=?').run(payment.receipt_registration,order.id);
   if(payment.status==='succeeded'&&payment.paid===true)billing.complete(order.id,payment.id,{userId:order.user_id,amount:order.amount,testMode:settings.mode==='test'});
   else if(payment.status==='canceled'&&order.status==='pending')db.prepare("UPDATE billing_orders SET status='canceled' WHERE id=? AND status='pending'").run(order.id);
+ };
+ const reconcileRefund=(refund,settings,{requireDate=false}={})=>{
+  if(refund?.status!=='succeeded'||!validYooId(refund.id)||!validYooId(refund.payment_id)||refund.amount?.currency!=='RUB')throw Error('Refund mismatch');
+  const amount=parseYooAmount(refund.amount.value),saved=db.prepare('SELECT * FROM yookassa_payments WHERE payment_id=?').get(refund.payment_id);
+  if(!saved||saved.shop_id!==settings.shopId||amount===null||amount<=0)throw Error('Refund mismatch');
+  const createdAt=typeof refund.created_at==='string'?Date.parse(refund.created_at):undefined;
+  if((requireDate||refund.created_at!==undefined)&&!Number.isSafeInteger(createdAt))throw Error('Refund date missing');
+  billing.refund(refund.payment_id,refund.id,amount,{createdAt});
+ };
+ const syncRefunds=async(client,settings)=>{
+  const now=Date.now();db.prepare('INSERT OR IGNORE INTO yookassa_refund_sync(shop_id) VALUES (?)').run(settings.shopId);
+  const state=db.prepare('SELECT * FROM yookassa_refund_sync WHERE shop_id=?').get(settings.shopId);
+  if(!state.cursor&&state.last_completed&&now-state.last_completed<300000)return;
+  let cursor=state.cursor;
+  try{
+   for(let page=0;page<5;page++){
+    const params=new URLSearchParams({limit:'100'});if(cursor)params.set('cursor',cursor);
+    const list=await client('/refunds?'+params.toString());
+    if(list?.type!=='list'||!Array.isArray(list.items)||list.items.length>100||(list.next_cursor!=null&&(typeof list.next_cursor!=='string'||!list.next_cursor||list.next_cursor===cursor)))throw Error('Invalid refund list');
+    for(const refund of list.items){
+     if(refund?.status!=='succeeded')continue;
+     const saved=validYooId(refund.payment_id)?db.prepare('SELECT y.shop_id,o.status FROM yookassa_payments y JOIN billing_orders o ON o.id=y.order_id WHERE y.payment_id=?').get(refund.payment_id):null;
+     if(!saved||saved.shop_id!==settings.shopId)continue;
+     if(saved.status==='pending')reconcile(await client('/payments/'+refund.payment_id),settings);
+     reconcileRefund(refund,settings,{requireDate:true});
+    }
+    cursor=list.next_cursor||null;
+    if(cursor)db.prepare('UPDATE yookassa_refund_sync SET cursor=?,last_error=NULL WHERE shop_id=?').run(cursor,settings.shopId);
+    else{db.prepare('UPDATE yookassa_refund_sync SET cursor=NULL,last_completed=?,last_error=NULL WHERE shop_id=?').run(Date.now(),settings.shopId);break}
+   }
+  }catch(error){db.prepare('UPDATE yookassa_refund_sync SET last_error=? WHERE shop_id=?').run(Date.now(),settings.shopId);console.error('YooKassa refund reconciliation failed:',error.message)}
  };
  app.post('/api/billing/orders',accounts.requireSession,async(req,res)=>{
   if(!enabled)return res.status(503).json({error:'Оплата пока недоступна.'});
@@ -67,10 +99,8 @@ export function setupYooKassa(app,{db,billing,paymentSettings,accounts,enabled=p
    if(event.startsWith('payment.')){const payment=await client('/payments/'+id);if(payment.id!==id)throw Error('Payment mismatch');reconcile(payment,settings)}
    else{
     const refund=await client('/refunds/'+id);
-    if(refund.id!==id||refund.status!=='succeeded'||!validYooId(refund.payment_id)||refund.amount?.currency!=='RUB')throw Error('Refund mismatch');
-    const amount=parseYooAmount(refund.amount.value),saved=db.prepare('SELECT * FROM yookassa_payments WHERE payment_id=?').get(refund.payment_id);
-    if(!saved||saved.shop_id!==settings.shopId||amount===null)throw Error('Refund mismatch');
-    billing.refund(refund.payment_id,refund.id,amount);
+    if(refund.id!==id)throw Error('Refund mismatch');
+    reconcileRefund(refund,settings);
    }
    res.sendStatus(200);
   }catch{res.sendStatus(503)}
@@ -88,6 +118,7 @@ export function setupYooKassa(app,{db,billing,paymentSettings,accounts,enabled=p
     catch(error){console.error('YooKassa payment reconciliation failed',row.payment_id,error.message)}
    }
    if(settings.mode!=='live')return;
+   await syncRefunds(client,settings);
    for(const row of db.prepare('SELECT DISTINCT user_id FROM billing_plan_queue').all()){
     try{billing.state(row.user_id)}catch(error){console.error('Plan activation failed',row.user_id,error.message)}
    }
@@ -122,7 +153,8 @@ export function setupYooKassa(app,{db,billing,paymentSettings,accounts,enabled=p
    }
   }finally{processing=false}
  };
- const timer=setInterval(()=>processPending().catch(error=>console.error('YooKassa background processing failed',error.message)),60000);
- timer.unref();
- return {processPending,close:()=>clearInterval(timer)};
+ const run=()=>processPending().catch(error=>console.error('YooKassa background processing failed',error.message));
+ const startup=setTimeout(run,1000),timer=setInterval(run,60000);
+ startup.unref();timer.unref();
+ return {processPending,close:()=>{clearTimeout(startup);clearInterval(timer)}};
 }

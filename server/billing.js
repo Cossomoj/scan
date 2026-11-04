@@ -45,6 +45,9 @@ export function setupBilling(db,{clock=Date.now}={}) {
  CREATE TABLE IF NOT EXISTS billing_payment_days (
   day INTEGER PRIMARY KEY, count INTEGER NOT NULL, amount INTEGER NOT NULL
  );
+ CREATE TABLE IF NOT EXISTS billing_refund_days (
+  day INTEGER PRIMARY KEY, count INTEGER NOT NULL, amount INTEGER NOT NULL
+ );
  CREATE TABLE IF NOT EXISTS billing_migrations (name TEXT PRIMARY KEY);
  DROP TRIGGER IF EXISTS billing_new_user;`);
  // Remove the old wallet data while preserving paid-order history and plans.
@@ -73,6 +76,12 @@ export function setupBilling(db,{clock=Date.now}={}) {
  const transaction=fn=>{db.exec('BEGIN IMMEDIATE');try{const result=fn();db.exec('COMMIT');return result}catch(e){db.exec('ROLLBACK');throw e}};
  const paymentDay=time=>Math.floor((time+10800000)/86400000)*86400000-10800000;
  const addPayment=(time,amount)=>db.prepare('INSERT INTO billing_payment_days(day,count,amount) VALUES (?,1,?) ON CONFLICT(day) DO UPDATE SET count=count+1,amount=amount+excluded.amount').run(paymentDay(time),amount);
+ const addRefund=(time,amount)=>db.prepare('INSERT INTO billing_refund_days(day,count,amount) VALUES (?,1,?) ON CONFLICT(day) DO UPDATE SET count=count+1,amount=amount+excluded.amount').run(paymentDay(time),amount);
+ transaction(()=>{
+  if(db.prepare("SELECT 1 FROM billing_migrations WHERE name='refund_days_v1'").get())return;
+  for(const refund of db.prepare('SELECT created,amount FROM billing_refunds WHERE test_mode=0').all())addRefund(refund.created,refund.amount);
+  db.prepare("INSERT INTO billing_migrations(name) VALUES ('refund_days_v1')").run();
+ });
  transaction(()=>{
   if(db.prepare("SELECT 1 FROM billing_migrations WHERE name='payment_days_v1'").get())return;
   const previous=db.prepare("SELECT o.amount,COALESCE(l.created,o.created) paid_at FROM billing_orders o LEFT JOIN billing_ledger l ON l.user_id=o.user_id AND l.request_id='payment:'||o.id WHERE o.status='paid' AND o.test_mode=0").all();
@@ -128,13 +137,13 @@ export function setupBilling(db,{clock=Date.now}={}) {
  });
  const getOrder=(id,userId)=>{const o=db.prepare('SELECT id,kind,amount,status FROM billing_orders WHERE id=? AND user_id=?').get(id,userId);return o||null};
  const downloads=userId=>Number(db.prepare("SELECT COUNT(*) n FROM billing_ledger WHERE user_id=? AND kind IN ('document_plan','document_free')").get(userId).n);
- const refund=(paymentTransactionId,refundTransactionId,amount)=>transaction(()=>{
+ const refund=(paymentTransactionId,refundTransactionId,amount,{createdAt}={})=>transaction(()=>{
   const validId=value=>/^(?:\d{1,30}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(value||'');
-  if(!validId(paymentTransactionId)||!validId(refundTransactionId)||!Number.isSafeInteger(amount)||amount<=0)throw Error('Некорректные данные возврата.');
-  const existing=db.prepare('SELECT r.*,o.transaction_id payment_id FROM billing_refunds r JOIN billing_orders o ON o.id=r.order_id WHERE r.transaction_id=?').get(refundTransactionId);if(existing){if(existing.amount!==amount||existing.payment_id!==paymentTransactionId)throw Error('Возврат не совпадает с ранее обработанным.');return {repeated:true}}
+  if(!validId(paymentTransactionId)||!validId(refundTransactionId)||!Number.isSafeInteger(amount)||amount<=0||(createdAt!==undefined&&(!Number.isSafeInteger(createdAt)||createdAt<0||createdAt>clock()+86400000)))throw Error('Некорректные данные возврата.');
+  const existing=db.prepare('SELECT r.*,o.transaction_id payment_id FROM billing_refunds r JOIN billing_orders o ON o.id=r.order_id WHERE r.transaction_id=?').get(refundTransactionId);if(existing){if(existing.amount!==amount||existing.payment_id!==paymentTransactionId)throw Error('Возврат не совпадает с ранее обработанным.');if(createdAt!==undefined&&existing.created!==createdAt){if(!existing.test_mode&&paymentDay(existing.created)!==paymentDay(createdAt)){db.prepare('UPDATE billing_refund_days SET count=count-1,amount=amount-? WHERE day=?').run(amount,paymentDay(existing.created));addRefund(createdAt,amount)}db.prepare('UPDATE billing_refunds SET created=? WHERE transaction_id=?').run(createdAt,refundTransactionId)}return {repeated:true}}
   const o=db.prepare('SELECT * FROM billing_orders WHERE transaction_id=?').get(paymentTransactionId);if(!o||!['paid','test_paid'].includes(o.status))throw Error('Платёж не найден.');
   const total=db.prepare('SELECT COALESCE(SUM(amount),0) n FROM billing_refunds WHERE order_id=?').get(o.id).n;if(total+amount>o.amount)throw Error('Сумма возвратов превышает платёж.');
-  db.prepare('INSERT INTO billing_refunds VALUES (?,?,?,?,?,?,?)').run(refundTransactionId,o.id,o.user_id,amount,clock(),o.test_mode?1:0,o.test_mode);
+  const refundedAt=createdAt??clock();db.prepare('INSERT INTO billing_refunds VALUES (?,?,?,?,?,?,?)').run(refundTransactionId,o.id,o.user_id,amount,refundedAt,o.test_mode?1:0,o.test_mode);if(!o.test_mode)addRefund(refundedAt,amount);
   if(!o.test_mode&&o.kind!=='topup')db.prepare('DELETE FROM billing_plan_queue WHERE order_id=?').run(o.id);
   db.prepare('INSERT INTO billing_ledger VALUES (?,?,?,?,?,?,?)').run(randomUUID(),o.user_id,clock(),'refund_review',0,'Возврат '+amount+' коп.','refund:'+refundTransactionId);
   return {repeated:false,testMode:!!o.test_mode};
