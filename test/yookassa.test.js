@@ -27,6 +27,6 @@ test('test payments are verified with YooKassa, idempotent and never affect the 
   const notification={type:'notification',event:'payment.succeeded',object:{id:payment.id,status:'succeeded',paid:true}};
   assert.equal((await post('/api/yookassa/webhook',notification)).status,200);assert.equal(billing.getOrder(order.orderId,'u').status,'pending');
   payment={...payment,status:'succeeded',paid:true,amount:{value:'51.00',currency:'RUB'}};assert.equal((await post('/api/yookassa/webhook',notification)).status,503);assert.equal(billing.getOrder(order.orderId,'u').status,'pending');
-  payment={...payment,amount:{value:'50.00',currency:'RUB'}};assert.equal((await post('/api/yookassa/webhook',notification)).status,200);assert.equal((await post('/api/yookassa/webhook',notification)).status,200);assert.equal(billing.getOrder(order.orderId,'u').status,'test_paid');assert.equal(billing.state('u').balance,0);
+  payment={...payment,amount:{value:'50.00',currency:'RUB'}};assert.equal((await post('/api/yookassa/webhook',notification)).status,200);assert.equal((await post('/api/yookassa/webhook',notification)).status,200);assert.equal(billing.getOrder(order.orderId,'u').status,'test_paid');assert.equal('balance' in billing.state('u'),false);
  }finally{await new Promise(r=>server.close(r));db.close()}
 });

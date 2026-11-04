@@ -20,7 +20,6 @@ export function setupYooKassa(app,{db,billing,paymentSettings,accounts,enabled=p
  app.post('/api/billing/orders',accounts.requireSession,async(req,res)=>{
   if(!enabled)return res.status(503).json({error:'Оплата пока недоступна.'});
   const settings=settingsForTest();if(!settings)return res.status(503).json({error:'Тестовая оплата пока не настроена. Реальные платежи отключены.'});
-  if(req.body?.kind==='topup')return res.status(400).json({error:'Выберите тариф.'});
   let order;try{order=billing.order(req.user.id,req.body?.kind,req.body?.amount,true)}catch(e){return res.status(400).json({error:e.message})}
   try{
    const payment=await clientFor(settings)('/payments',{method:'POST',body:createTestPaymentPayload(order,req.user.email),idempotenceKey:order.id});
