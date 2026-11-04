@@ -32,6 +32,11 @@
  .landing .home-header:has(>.account-trigger-signed-in){height:auto;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;padding-block:12px}
  .landing .home-header:has(>.account-trigger-signed-in)>.home-brand{min-width:0}
  .landing .home-header:has(>.account-trigger-signed-in)>nav[aria-label="Главное меню"]{grid-column:2;grid-row:1;margin:0}
- .landing .home-header>.account-trigger-signed-in{grid-column:1/-1;grid-row:2;display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;width:100%;min-width:0;text-align:left}
- .landing .home-header>.account-trigger-signed-in :is(.account-plan,.account-usage){margin:0;white-space:normal;overflow-wrap:anywhere}
+ .landing .home-header>.account-trigger-signed-in{grid-column:1/-1;grid-row:2;display:grid;grid-template-columns:34px minmax(0,1fr) minmax(0,110px) 14px;align-items:center;gap:10px;width:100%;min-width:0;min-height:64px;padding:10px 12px;text-align:left;background:#f4f8fe;border-color:#e1eaf6;border-radius:12px}
+ .landing .home-header .account-trigger-icon{display:block;width:34px;height:34px;padding:7px;color:#0b57d0;background:#e4efff;border-radius:10px}
+ .landing .home-header .account-trigger-details{display:grid;gap:3px;min-width:0}
+ .landing .home-header .account-trigger-title{font-size:13px;font-weight:700;line-height:1.25;color:#182028}
+ .landing .home-header>.account-trigger-signed-in :is(.account-plan,.account-usage){margin:0;white-space:normal;overflow-wrap:anywhere;font-size:11px;line-height:1.35}
+ .landing .home-header .account-usage{grid-column:3;text-align:right}
+ .landing .home-header .account-trigger-chevron{grid-column:4;display:block;width:14px;height:14px;color:#6e83a0}
 }
