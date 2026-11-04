@@ -23,7 +23,7 @@ export default function ProfilePanel({user,onAdd,onViewPricing}){
    <div className="profile-contact"><span>Почта для связи</span><strong className="ym-hide-content">{user.email}</strong><p>На эту почту приходят коды для входа и чеки об оплате.</p></div>
   </header>
   <div className="profile-summary">
-   <div><strong>{billing?.downloads??'—'}</strong><span>скачиваний документов</span></div>
+   <div><strong>{billing?.user?.downloadLimit!=null?`${billing.user.downloadUsed} / ${billing.user.downloadLimit}`:(billing?.downloads??'—')}</strong><span>{billing?.user?.downloadLimit!=null?'скачиваний по тарифу':'скачиваний документов всего'}</span></div>
    <div><strong>{assets?.length??'—'}{billing?.user?.signatureLimit!=null&&` / ${billing.user.signatureLimit}`}</strong><span>подписей и печатей в аккаунте</span></div>
   </div>
   <div className="profile-main">

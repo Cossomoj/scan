@@ -6,14 +6,14 @@ import {setupBilling} from '../server/billing.js';
 test('daily plan allows 50 downloads, then uses the free download once',()=>{
  const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE users(id TEXT PRIMARY KEY,created INTEGER NOT NULL)');
  let now=100000;const billing=setupBilling(db,{clock:()=>now});db.prepare('INSERT INTO users VALUES (?,?)').run('new',now);
- assert.equal('balance' in billing.state('new'),false);billing.adjust('new',{plan:'daily'});
+ assert.equal('balance' in billing.state('new'),false);assert.equal(billing.state('new').downloadLimit,1);assert.equal(billing.state('new').downloadUsed,0);billing.adjust('new',{plan:'daily'});
  assert.equal(billing.state('new').plan,'daily');assert.equal(billing.state('new').remaining,50);
  for(let i=0;i<49;i++)billing.debit('new','download-request-'+String(i).padStart(8,'0'));
- assert.equal(billing.downloads('new'),49);
+ assert.equal(billing.downloads('new'),49);assert.equal(billing.state('new').downloadLimit,50);assert.equal(billing.state('new').downloadUsed,49);
  assert.equal('balance' in billing.state('new'),false);
  const id='12345678-1234-1234-1234-123456789012';billing.debit('new',id,'first');assert.equal(billing.debit('new',id,'first').repeated,true);assert.equal(billing.downloads('new'),50);
  assert.throws(()=>billing.debit('new',id,'different'),/другого документа/);
- now+=86400000;assert.equal(billing.debit('new','new-download-request-00001').kind,'document_free');assert.throws(()=>billing.debit('new','new-download-request-00002'),/тариф/);
+ now+=86400000;assert.equal(billing.debit('new','new-download-request-00001').kind,'document_free');assert.equal(billing.state('new').downloadUsed,1);assert.equal(billing.state('new').downloadLimit,1);assert.throws(()=>billing.debit('new','new-download-request-00002'),/тариф/);
  assert.equal('balance' in billing.state('new'),false);db.close();
 });
 

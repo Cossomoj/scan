@@ -57,11 +57,11 @@ test('signature and stamp limits follow the plan without deleting existing asset
   const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
   const item=(i,kind='signature')=>({id:'image-'+i,kind,name:'Образец',widthMm:50,heightMm:20,image:png,sourceImage:png});
   const save=x=>fetch(root+'/api/account/assets/'+x.id,{method:'PUT',headers:{'Content-Type':'application/json',cookie},body:JSON.stringify(x)});
-  assert.equal(billing.state(id).signatureLimit,1);assert.equal((await save(item(1))).status,200);assert.equal((await save(item(2,'stamp'))).status,409);assert.equal((await save({...item(1),name:'Изменённая'})).status,200);
+  assert.equal(billing.state(id).signatureLimit,10);for(let i=1;i<=10;i++)assert.equal((await save(item(i,i%2?'signature':'stamp'))).status,200);assert.equal((await save(item(11))).status,409);assert.equal((await save({...item(1),name:'Изменённая'})).status,200);
   assert.equal((await save({id:'text-1',kind:'text',name:'Текст',text:'Текст',color:'#17233b',widthMm:50,heightMm:10})).status,200);
-  billing.adjust(id,{plan:'monthly'});assert.equal(billing.state(id).signatureLimit,20);for(let i=2;i<=20;i++)assert.equal((await save(item(i,i%2?'signature':'stamp'))).status,200);
+  billing.adjust(id,{plan:'monthly'});assert.equal(billing.state(id).signatureLimit,20);for(let i=11;i<=20;i++)assert.equal((await save(item(i,i%2?'signature':'stamp'))).status,200);
   assert.equal((await save(item(21))).status,409);billing.adjust(id,{plan:'yearly'});assert.equal(billing.state(id).signatureLimit,100);for(let i=21;i<=100;i++)assert.equal((await save(item(i))).status,200);assert.equal((await save(item(101))).status,409);
-  billing.adjust(id,{plan:null});assert.equal(billing.state(id).signatureLimit,1);assert.equal((await save({...item(21),name:'Исправлено'})).status,200);assert.equal((await save(item(101))).status,409);
+  billing.adjust(id,{plan:null});assert.equal(billing.state(id).signatureLimit,10);assert.equal((await save({...item(21),name:'Исправлено'})).status,200);assert.equal((await save(item(101))).status,409);
   const items=(await(await fetch(root+'/api/account/assets',{headers:{cookie}})).json()).items;assert.equal(items.length,101);assert.ok(items.some(x=>x.id==='image-21'&&x.name==='Исправлено'));
  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));db.close();await rm(dir,{recursive:true,force:true})}
 });
