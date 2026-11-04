@@ -31,7 +31,9 @@ const sections = [
   </>],
   ['Стоимость и порядок оплаты', <>
     <p>Действующие цены и условия показаны в <a href="/#pricing">разделе тарифов</a> до оплаты.</p>
-    <ul><li>Дневной тариф: 50 ₽ за 24 часа, неограниченное число скачиваний.</li><li>Месячный тариф: 249 ₽ за 30 дней, до 20 готовых документов.</li><li>Годовой тариф: 1 499 ₽ за 365 дней, до 100 готовых документов.</li></ul>
+    <p>После регистрации каждому аккаунту доступно одно бесплатное скачивание готового документа. Оно сохраняется во время действия платного тарифа и может быть использовано, когда действующих оплаченных тарифов нет.</p>
+    <ul><li>Дневной тариф: 50 ₽ за 24 часа, неограниченное число скачиваний.</li><li>Месячный тариф: 249 ₽ за 30 дней, до 20 скачиваний.</li><li>Годовой тариф: 1 499 ₽ за 365 дней, до 100 скачиваний.</li></ul>
+    <p>При каждом новом скачивании готового документа расходуется одно доступное скачивание, кроме дневного тарифа без ограничений. Повторная попытка при ошибке отправки того же результата не расходует дополнительное скачивание.</p>
     <p>Автоматического продления тарифов нет. Сумма и выбранная покупка показываются до подтверждения оплаты.</p>
   </>],
   ['Срок и момент оказания услуги', <>
@@ -62,7 +64,7 @@ function Layout({children,id}) {
 
 export function Offer() {
   useEffect(()=>{document.title='Публичная оферта — Конторка';recordMetrikaView('offer')},[]);
-  return <Layout id="offer-content"><div className="policy-title"><h1>Публичная оферта</h1><p>О предоставлении доступа к платным функциям сервиса</p><p>Редакция от <time dateTime="2026-11-03">3 ноября 2026 г.</time></p></div><nav className="policy-toc" aria-labelledby="offer-toc-title"><h2 id="offer-toc-title">Содержание</h2><ol>{sections.map(([title],i)=><li key={title}><a href={'#section-'+(i+1)}>{title}</a></li>)}</ol></nav><div className="policy-sections">{sections.map(([title,body],i)=><section className="policy-section" key={title} id={'section-'+(i+1)}><h2>{i+1}. {title}</h2><div className="policy-body">{body}</div></section>)}</div></Layout>;
+  return <Layout id="offer-content"><div className="policy-title"><h1>Публичная оферта</h1><p>О предоставлении доступа к платным функциям сервиса</p><p>Редакция от <time dateTime="2026-11-04">4 ноября 2026 г.</time></p></div><nav className="policy-toc" aria-labelledby="offer-toc-title"><h2 id="offer-toc-title">Содержание</h2><ol>{sections.map(([title],i)=><li key={title}><a href={'#section-'+(i+1)}>{title}</a></li>)}</ol></nav><div className="policy-sections">{sections.map(([title,body],i)=><section className="policy-section" key={title} id={'section-'+(i+1)}><h2>{i+1}. {title}</h2><div className="policy-body">{body}</div></section>)}</div></Layout>;
 }
 
 export function Requisites() {
