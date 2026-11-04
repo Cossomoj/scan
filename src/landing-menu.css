@@ -26,3 +26,12 @@
 @media(max-width:950px){.landing .home-header nav>.home-nav-link{display:none}.landing .home-header nav[aria-label="Главное меню"]{margin-left:auto}}
 @media(max-width:430px){.landing .home-header{gap:8px}}
 @media(max-height:520px){.landing .capabilities-panel{max-height:calc(100dvh - 90px);overflow-y:auto}}
+@media(max-width:700px){.landing .capabilities-trigger{width:44px;padding:8px}.capabilities-trigger span,.capabilities-trigger .capabilities-chevron{display:none}.capabilities-mobile-icon{display:block;width:20px;height:20px}}
+@media(max-width:600px){
+ .landing .home-header{gap:8px}
+ .landing .home-header:has(>.account-trigger-signed-in){height:auto;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;padding-block:12px}
+ .landing .home-header:has(>.account-trigger-signed-in)>.home-brand{min-width:0}
+ .landing .home-header:has(>.account-trigger-signed-in)>nav[aria-label="Главное меню"]{grid-column:2;grid-row:1;margin:0}
+ .landing .home-header>.account-trigger-signed-in{grid-column:1/-1;grid-row:2;display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;width:100%;min-width:0;text-align:left}
+ .landing .home-header>.account-trigger-signed-in :is(.account-plan,.account-usage){margin:0;white-space:normal;overflow-wrap:anywhere}
+}
