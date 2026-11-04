@@ -11,6 +11,7 @@ import {setupBilling} from './billing.js';
 import {setupPaymentSettings} from './paymentSettings.js';
 import {setupBillingRoutes} from './billingRoutes.js';
 import {setupYooKassa} from './yookassaRoutes.js';
+import {createYooClient} from './yookassa.js';
 import {setupFeedback} from './feedback.js';
 import {setupPrivacy} from './privacy.js';
 import {setupSignatureProcessor} from './signatureProcessor.js';
@@ -36,8 +37,24 @@ setupPrivacy(app,db);
 setupFeedback(app,{recordConsent:accounts.recordConsent});
 const billing=setupBilling(db);
 const paymentSettings=setupPaymentSettings(db,dataDir);
+let checkingPaymentSettings=false;
+const verifyExistingPaymentSettings=async()=>{
+ if(process.env.BILLING_ENABLED!=='1'||checkingPaymentSettings)return;
+ const settings=paymentSettings.get();
+ if(!settings||settings.mode!=='live'||settings.verified)return;
+ checkingPaymentSettings=true;
+ try{
+  await createYooClient(settings)('/payments?limit=1');
+  const current=paymentSettings.get();
+  if(current&&current.mode===settings.mode&&current.shopId===settings.shopId&&current.secret===settings.secret&&!current.verified)paymentSettings.save(settings,true);
+ }catch(error){console.error('YooKassa settings verification failed:',error.message)}
+ finally{checkingPaymentSettings=false}
+};
+const schedulePaymentSettingsCheck=()=>verifyExistingPaymentSettings().catch(error=>console.error('YooKassa settings check failed:',error.message));
+setImmediate(schedulePaymentSettingsCheck);
+setInterval(schedulePaymentSettingsCheck,300000).unref();
 setupAdmin(app,db,{billing,paymentSettings});
-setupBillingRoutes(app,{billing,accounts});
+setupBillingRoutes(app,{billing,accounts,paymentSettings});
 setupYooKassa(app,{db,billing,paymentSettings,accounts});
 const upload = multer({storage:multer.memoryStorage(),limits:{fileSize:20*1024*1024, files:1, fields:3}});
 const officeUpload = multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024,files:1,fields:0}});

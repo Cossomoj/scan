@@ -13,6 +13,7 @@ services:
       SMTP_FROM: ${SMTP_FROM:-}
       CONVERTER_URL: http://converter:3001
       SIGNATURE_PROCESSOR_URL: http://signature-processor:8000
+      BILLING_ENABLED: '1'
       ADMIN_CREDENTIAL: ${ADMIN_CREDENTIAL:-}
     volumes:
       - sign_data:/app/data

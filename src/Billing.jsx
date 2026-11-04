@@ -5,6 +5,7 @@ async function api(path,options){const r=await fetch('/api/billing/'+path,option
 export function useBillingStatus(){const [status,setStatus]=useState(null);const refresh=()=>api('status').then(setStatus).catch(()=>setStatus({unavailable:true}));useEffect(()=>{refresh();const update=()=>refresh();window.addEventListener('billing-updated',update);return()=>window.removeEventListener('billing-updated',update)},[]);return [status,refresh]}
 export async function startCheckout(kind,amount){
  const order=await api('orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind,amount})});
+ if(order.status==='paid'||order.status==='test_paid'){window.dispatchEvent(new Event('billing-updated'));return order.status}
  let url;try{url=new URL(order.confirmationUrl)}catch{throw Error('Не удалось открыть платёжную страницу.')}
  if(url.protocol!=='https:'||url.username||url.password||url.port||!['yookassa.ru','yoomoney.ru'].some(h=>url.hostname===h||url.hostname.endsWith('.'+h)))throw Error('Не удалось открыть платёжную страницу.');
  window.location.assign(url.href);return 'redirecting';

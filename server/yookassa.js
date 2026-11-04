@@ -18,7 +18,11 @@ export function createYooClient(settings, fetchImpl = fetch) {
     const response = await fetchImpl('https://api.yookassa.ru/v3' + path, {
       method, headers, ...(body ? {body: JSON.stringify(body)} : {}), signal: AbortSignal.timeout(20000),
     });
-    if (!response.ok) throw Error('ЮKassa не приняла запрос. Проверьте настройки магазина.');
+    if (!response.ok) {
+      const error = Error('ЮKassa не приняла запрос. Проверьте настройки магазина.');
+      error.status = response.status;
+      throw error;
+    }
     return response.json();
   };
 }
@@ -39,6 +43,19 @@ export function createTestPaymentPayload(order, email) {
   };
 }
 
+export function createSettlementReceipt(order, email, paymentId) {
+  const payment = createTestPaymentPayload(order, email);
+  const amount = {value: yooAmount(order.amount), currency: 'RUB'};
+  return {
+    type: 'payment',
+    payment_id: paymentId,
+    send: true,
+    customer: {email},
+    items: payment.receipt.items.map(item => ({...item, payment_mode: 'full_payment'})),
+    settlements: [{type: 'prepayment', amount}],
+  };
+}
+
 export function safeConfirmationUrl(value) {
   try {
     const url = new URL(value);
@@ -48,8 +65,8 @@ export function safeConfirmationUrl(value) {
 }
 
 export function matchesYooPayment(payment, order) {
-  return !!(payment && validYooId(payment.id) && payment.test === true &&
+  return !!(payment && order && validYooId(payment.id) && payment.test === (order.test_mode === 1) &&
     payment.metadata?.order_id === order.id && payment.metadata?.user_id === order.user_id &&
     payment.amount?.currency === 'RUB' && parseYooAmount(payment.amount?.value) === order.amount &&
-    order.test_mode === 1);
+    (order.test_mode === 1 || order.test_mode === 0));
 }

@@ -13,3 +13,12 @@ test('paid export charges only after successful rendering and protects retries',
  const pdf=await PDFDocument.create();pdf.addPage();const bytes=await pdf.save();const request=async(id,items=[],loggedIn=true)=>{const form=new FormData();form.append('document',new Blob([bytes]),'test.pdf');form.append('items',JSON.stringify(items));form.append('filters','{}');form.append('requestId',id);return fetch(root+'/api/billing/export',{method:'POST',headers:loggedIn?{'x-test-user':'1'}:{},body:form})};
  try{const id='12345678-1234-1234-1234-123456789012';assert.equal((await request(id,[],false)).status,401);fail=true;assert.equal((await request(id)).status,400);assert.equal(billing.state('user').plan,'daily');fail=false;assert.equal((await request(id)).status,200);assert.equal(billing.state('user').plan,'daily');assert.equal((await request(id)).status,200);assert.equal((await request(id,[{type:'check'}])).status,400);assert.equal((await request('12345678-1234-1234-1234-123456789013')).status,200)}finally{await new Promise(r=>server.close(r));db.close()}
 });
+
+test('paid mode stays unavailable until payment settings are verified',async()=>{
+ const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE users(id TEXT PRIMARY KEY,created INTEGER NOT NULL)');const billing=setupBilling(db);
+ const accounts={sameOrigin:(_q,_s,n)=>n(),session:()=>null,requireSession:(_q,r)=>r.sendStatus(401)};
+ let settings={mode:'live',verified:false};const app=express();setupBillingRoutes(app,{billing,accounts,paymentSettings:{get:()=>settings},enabled:true});
+ const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const url=`http://127.0.0.1:${server.address().port}/api/billing/status`;
+ try{assert.equal((await(await fetch(url)).json()).enabled,false);settings={mode:'live',verified:true};const status=await(await fetch(url)).json();assert.equal(status.enabled,true);assert.equal(status.testMode,false)}
+ finally{server.closeAllConnections();await new Promise(r=>server.close(r));db.close()}
+});

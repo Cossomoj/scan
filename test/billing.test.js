@@ -83,3 +83,13 @@ test('migration removes old balance and cancels pending topups while preserving 
  assert.equal(db.prepare("SELECT status FROM billing_orders WHERE id='old-pending'").get().status,'canceled');
  assert.equal(db.prepare("SELECT status FROM billing_orders WHERE id='old-paid'").get().status,'paid');db.close();
 });
+
+test('a queued paid tariff creates its settlement receipt only when activated',()=>{
+ const db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON; CREATE TABLE users(id TEXT PRIMARY KEY,created INTEGER NOT NULL)');
+ let now=100;const billing=setupBilling(db,{clock:()=>now});db.exec('CREATE TABLE yookassa_payments(order_id TEXT PRIMARY KEY REFERENCES billing_orders(id),payment_id TEXT,shop_id TEXT)');
+ db.prepare('INSERT INTO users VALUES (?,?)').run('u',now);billing.adjust('u',{plan:'daily'});
+ const order=billing.order('u','monthly');db.prepare('INSERT INTO yookassa_payments VALUES (?,?,?)').run(order.id,'payment','1516684');
+ billing.complete(order.id,'payment',{userId:'u',amount:24900,testMode:false});assert.equal(db.prepare('SELECT COUNT(*) n FROM billing_receipt_jobs').get().n,0);
+ now+=86400000;assert.equal(billing.state('u').plan,'monthly');assert.equal(db.prepare('SELECT COUNT(*) n FROM billing_receipt_jobs').get().n,1);
+ billing.state('u');assert.equal(db.prepare('SELECT COUNT(*) n FROM billing_receipt_jobs').get().n,1);db.close();
+});

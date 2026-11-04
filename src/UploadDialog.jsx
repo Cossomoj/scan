@@ -17,7 +17,7 @@ export default function UploadDialog({onClose,onSelect,busy,error}){
         <div className="upload-formats" aria-label="Поддерживаемые форматы"><span>PDF</span><span>JPG · PNG</span><span>DOC · DOCX</span><span>XLS · XLSX</span><span>до 50 МБ</span></div>
       </div>
       {error&&<p className="upload-error" role="alert">{error}</p>}
-      <p className="upload-privacy"><span aria-hidden="true">◈</span><span>PDF и фотографии остаются в браузере. Word и Excel временно отправляются для преобразования в PDF и удаляются после обработки.</span></p>
+      <p className="upload-privacy"><span aria-hidden="true">◈</span><span>PDF и фотографии редактируются в браузере. При платном скачивании документ временно передаётся на сервер для подготовки файла. Word и Excel временно передаются для преобразования в PDF.</span></p>
     </section>
   </div>;
 }
