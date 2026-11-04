@@ -3,7 +3,7 @@ import {listSignatures} from './signatureStore.js';
 import {BillingAccount,useBillingStatus} from './Billing.jsx';
 import './profile.css';
 
-export default function ProfilePanel({user,onAdd}){
+export default function ProfilePanel({user,onAdd,onViewPricing}){
  const [assets,setAssets]=useState(null),[error,setError]=useState(''),[billing]=useBillingStatus();
  useEffect(()=>{
   let active=true;
@@ -35,7 +35,7 @@ export default function ProfilePanel({user,onAdd}){
      <button className="profile-add" type="button" onClick={onAdd}><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Добавить</span></button>
     </div>}
    </section>
-   <BillingAccount status={billing}/>
+   <BillingAccount status={billing} onViewPricing={onViewPricing}/>
   </div>
  </div>;
 }
