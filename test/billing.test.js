@@ -74,8 +74,8 @@ test('migration removes old balance and cancels pending topups while preserving 
  db.prepare('UPDATE billing_wallets SET balance=5000 WHERE user_id=?').run('u');
  db.prepare('INSERT INTO billing_ledger VALUES (?,?,?,?,?,?,?)').run('old-bonus','u',now,'welcome',1000,'',null);
  db.prepare('INSERT INTO billing_ledger VALUES (?,?,?,?,?,?,?)').run('old-credit','u',now,'topup',5000,'','payment:old-paid');
- db.prepare("INSERT INTO billing_orders VALUES (?,?,?,?,?,?,?,?)").run('old-pending','u','topup',5000,'pending',now,null,0);
- db.prepare("INSERT INTO billing_orders VALUES (?,?,?,?,?,?,?,?)").run('old-paid','u','topup',5000,'paid',now,'old-payment',0);
+ db.prepare("INSERT INTO billing_orders(id,user_id,kind,amount,status,created,transaction_id,test_mode) VALUES (?,?,?,?,?,?,?,?)").run('old-pending','u','topup',5000,'pending',now,null,0);
+ db.prepare("INSERT INTO billing_orders(id,user_id,kind,amount,status,created,transaction_id,test_mode) VALUES (?,?,?,?,?,?,?,?)").run('old-paid','u','topup',5000,'paid',now,'old-payment',0);
  billing=setupBilling(db,{clock:()=>now});setupBilling(db,{clock:()=>now});
  assert.equal(db.prepare('PRAGMA table_info(billing_wallets)').all().some(c=>c.name==='balance'),false);
  assert.equal(billing.state('u').plan,'monthly');assert.equal(billing.state('u').remaining,20);
@@ -85,12 +85,28 @@ test('migration removes old balance and cancels pending topups while preserving 
  assert.equal(db.prepare("SELECT status FROM billing_orders WHERE id='old-paid'").get().status,'paid');db.close();
 });
 
-test('a queued paid tariff creates its settlement receipt only when activated',()=>{
+test('a legacy queued prepaid tariff creates its settlement receipt only when activated',()=>{
  const db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON; CREATE TABLE users(id TEXT PRIMARY KEY,created INTEGER NOT NULL)');
  let now=100;const billing=setupBilling(db,{clock:()=>now});db.exec('CREATE TABLE yookassa_payments(order_id TEXT PRIMARY KEY REFERENCES billing_orders(id),payment_id TEXT,shop_id TEXT)');
  db.prepare('INSERT INTO users VALUES (?,?)').run('u',now);billing.adjust('u',{plan:'daily'});
- const order=billing.order('u','monthly');db.prepare('INSERT INTO yookassa_payments VALUES (?,?,?)').run(order.id,'payment','1516684');
+ const order=billing.order('u','monthly');db.prepare("UPDATE billing_orders SET receipt_mode='full_prepayment' WHERE id=?").run(order.id);db.prepare('INSERT INTO yookassa_payments VALUES (?,?,?)').run(order.id,'payment','1516684');
  billing.complete(order.id,'payment',{userId:'u',amount:24900,testMode:false});assert.equal(db.prepare('SELECT COUNT(*) n FROM billing_receipt_jobs').get().n,0);
  now+=86400000;assert.equal(billing.state('u').plan,'monthly');assert.equal(db.prepare('SELECT COUNT(*) n FROM billing_receipt_jobs').get().n,1);
  billing.state('u');assert.equal(db.prepare('SELECT COUNT(*) n FROM billing_receipt_jobs').get().n,1);db.close();
+});
+
+test('fully paid queued tariff does not create a second receipt on activation',()=>{
+ const db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON; CREATE TABLE users(id TEXT PRIMARY KEY,created INTEGER NOT NULL)');
+ let now=100;const billing=setupBilling(db,{clock:()=>now});db.exec('CREATE TABLE yookassa_payments(order_id TEXT PRIMARY KEY REFERENCES billing_orders(id),payment_id TEXT,shop_id TEXT)');
+ db.prepare('INSERT INTO users VALUES (?,?)').run('u',now);billing.adjust('u',{plan:'daily'});
+ const order=billing.order('u','monthly');assert.equal(order.receiptMode,'full_payment');db.prepare('INSERT INTO yookassa_payments VALUES (?,?,?)').run(order.id,'payment','1516684');
+ billing.complete(order.id,'payment',{userId:'u',amount:24900,testMode:false});now+=86400000;
+ assert.equal(billing.state('u').plan,'monthly');assert.equal(db.prepare('SELECT COUNT(*) n FROM billing_receipt_jobs').get().n,0);db.close();
+});
+
+test('old orders retain the prepayment mode when upgrading the database',()=>{
+ const db=new DatabaseSync(':memory:');db.exec("CREATE TABLE users(id TEXT PRIMARY KEY,created INTEGER NOT NULL); INSERT INTO users VALUES ('u',100); CREATE TABLE billing_orders(id TEXT PRIMARY KEY,user_id TEXT NOT NULL,kind TEXT NOT NULL,amount INTEGER NOT NULL,status TEXT NOT NULL,created INTEGER NOT NULL,transaction_id TEXT UNIQUE,test_mode INTEGER NOT NULL DEFAULT 0); INSERT INTO billing_orders VALUES ('old','u','daily',5000,'pending',100,NULL,0)");
+ const billing=setupBilling(db,{clock:()=>100});setupBilling(db,{clock:()=>100});
+ assert.equal(db.prepare("SELECT receipt_mode FROM billing_orders WHERE id='old'").get().receipt_mode,'full_prepayment');
+ assert.equal(db.prepare('SELECT receipt_mode FROM billing_orders WHERE id=?').get(billing.order('u','daily').id).receipt_mode,'full_payment');db.close();
 });

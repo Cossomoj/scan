@@ -28,6 +28,8 @@ export function createYooClient(settings, fetchImpl = fetch) {
 }
 
 export function createTestPaymentPayload(order, email) {
+  const receiptMode = order.receiptMode ?? 'full_payment';
+  if (!['full_payment', 'full_prepayment'].includes(receiptMode)) throw Error('Invalid receipt mode');
   const value = yooAmount(order.amount);
   const description = order.kind === 'daily' ? 'Дневной тариф Конторка на 24 часа' : order.kind === 'monthly' ? 'Тариф Конторка на 30 дней' : 'Тариф Конторка на 365 дней';
   return {
@@ -38,7 +40,7 @@ export function createTestPaymentPayload(order, email) {
     metadata: {order_id: order.id, user_id: order.userId},
     receipt: {customer: {email}, items: [{
       description, quantity: '1.00', amount: {value, currency: 'RUB'},
-      vat_code: 1, payment_mode: 'full_prepayment', payment_subject: 'service',
+      vat_code: 1, payment_mode: receiptMode, payment_subject: 'service',
     }]},
   };
 }

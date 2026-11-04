@@ -26,7 +26,7 @@ export function setupYooKassa(app,{db,billing,paymentSettings,accounts,enabled=p
    const previous=db.prepare("SELECT * FROM billing_orders WHERE user_id=? AND kind=? AND test_mode=? AND status='pending' ORDER BY created DESC LIMIT 1").get(req.user.id,req.body?.kind,settings.mode==='test'?1:0);
    if(previous){
     if(Date.now()-previous.created>=23*60*60*1000)return res.status(409).json({error:'Предыдущий платёж ещё проверяется. Обратитесь в поддержку.'});
-    order={id:previous.id,userId:previous.user_id,kind:previous.kind,amount:previous.amount,testMode:!!previous.test_mode};
+    order={id:previous.id,userId:previous.user_id,kind:previous.kind,amount:previous.amount,testMode:!!previous.test_mode,receiptMode:previous.receipt_mode};
    }else order=billing.order(req.user.id,req.body?.kind,req.body?.amount,settings.mode==='test');
   }catch(e){return res.status(400).json({error:e.message})}
   try{
