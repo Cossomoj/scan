@@ -1,6 +1,6 @@
 import {createYooClient,createTestPaymentPayload,matchesYooPayment,parseYooAmount,safeConfirmationUrl,validYooId} from './yookassa.js';
 
-// Live payments remain unavailable until the fiscal treatment of wallet spending is implemented.
+// Live payments remain unavailable until fiscal receipts are implemented and verified.
 export function setupYooKassa(app,{db,billing,paymentSettings,accounts,enabled=process.env.BILLING_ENABLED==='1',clientFor=createYooClient}) {
  db.exec(`CREATE TABLE IF NOT EXISTS yookassa_payments (order_id TEXT PRIMARY KEY REFERENCES billing_orders(id) ON DELETE CASCADE, payment_id TEXT NOT NULL UNIQUE, shop_id TEXT NOT NULL)`);
  const settingsForTest=()=>{const s=paymentSettings.get();return s?.mode==='test'&&s.secret.startsWith('test_')?s:null};
@@ -20,6 +20,7 @@ export function setupYooKassa(app,{db,billing,paymentSettings,accounts,enabled=p
  app.post('/api/billing/orders',accounts.requireSession,async(req,res)=>{
   if(!enabled)return res.status(503).json({error:'Оплата пока недоступна.'});
   const settings=settingsForTest();if(!settings)return res.status(503).json({error:'Тестовая оплата пока не настроена. Реальные платежи отключены.'});
+  if(req.body?.kind==='topup')return res.status(400).json({error:'Выберите тариф.'});
   let order;try{order=billing.order(req.user.id,req.body?.kind,req.body?.amount,true)}catch(e){return res.status(400).json({error:e.message})}
   try{
    const payment=await clientFor(settings)('/payments',{method:'POST',body:createTestPaymentPayload(order,req.user.email),idempotenceKey:order.id});

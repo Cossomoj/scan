@@ -2,10 +2,11 @@ import {randomUUID} from 'node:crypto';
 
 // All monetary amounts are stored as integer kopecks.
 export const PLANS = Object.freeze({
+ daily: {title:'Дневной', price:5000, documents:null, days:1},
  monthly: {title:'Месячный', price:24900, documents:20, days:30},
  yearly: {title:'Годовой', price:149900, documents:100, days:365},
 });
-export const DOCUMENT_PRICE = 1000;
+
 export const MIN_TOPUP = 5000;
 
 export function setupBilling(db,{clock=Date.now}={}) {
@@ -37,11 +38,7 @@ export function setupBilling(db,{clock=Date.now}={}) {
   day INTEGER PRIMARY KEY, count INTEGER NOT NULL, amount INTEGER NOT NULL
  );
  CREATE TABLE IF NOT EXISTS billing_migrations (name TEXT PRIMARY KEY);
- CREATE TRIGGER IF NOT EXISTS billing_new_user AFTER INSERT ON users BEGIN
-  INSERT INTO billing_wallets(user_id,balance) VALUES (NEW.id,1000);
-  INSERT INTO billing_ledger(id,user_id,created,kind,amount,detail)
-    VALUES ('welcome:' || NEW.id,NEW.id,NEW.created,'welcome',1000,'Бонус при регистрации');
- END;`);
+ DROP TRIGGER IF EXISTS billing_new_user;`);
  const transaction=fn=>{db.exec('BEGIN IMMEDIATE');try{const result=fn();db.exec('COMMIT');return result}catch(e){db.exec('ROLLBACK');throw e}};
  const paymentDay=time=>Math.floor((time+10800000)/86400000)*86400000-10800000;
  const addPayment=(time,amount)=>db.prepare('INSERT INTO billing_payment_days(day,count,amount) VALUES (?,1,?) ON CONFLICT(day) DO UPDATE SET count=count+1,amount=amount+excluded.amount').run(paymentDay(time),amount);
@@ -52,23 +49,22 @@ export function setupBilling(db,{clock=Date.now}={}) {
   db.prepare("INSERT INTO billing_migrations(name) VALUES ('payment_days_v1')").run();
  });
  const ensure=userId=>{db.prepare('INSERT OR IGNORE INTO billing_wallets(user_id) VALUES (?)').run(userId);return db.prepare('SELECT * FROM billing_wallets WHERE user_id=?').get(userId)};
- const state=userId=>{let w=ensure(userId),active=!!(w.plan&&w.expires>clock()&&w.remaining>0);const pending=db.prepare('SELECT COUNT(*) count,COALESCE(SUM(amount),0) amount FROM billing_refunds WHERE user_id=? AND resolved=0 AND test_mode=0').get(userId);if(!active&&!pending.count){const next=db.prepare('SELECT rowid,* FROM billing_plan_queue WHERE user_id=? ORDER BY created,rowid LIMIT 1').get(userId);if(next){const p=PLANS[next.plan];if(!p)throw Error('Некорректный тариф в очереди.');db.prepare('UPDATE billing_wallets SET plan=?,remaining=?,expires=? WHERE user_id=?').run(next.plan,p.documents,clock()+p.days*86400000,userId);db.prepare('DELETE FROM billing_plan_queue WHERE order_id=?').run(next.order_id);w=ensure(userId);active=true}}const queued=db.prepare('SELECT count(*) n FROM billing_plan_queue WHERE user_id=?').get(userId).n;return {balance:w.balance,plan:active?w.plan:null,remaining:active?w.remaining:0,expires:active?w.expires:null,queued,review:pending.count>0,refundPending:pending.amount}};
+ const state=userId=>{let w=ensure(userId),active=!!(w.plan&&w.expires>clock()&&(w.plan==='daily'||w.remaining>0));const pending=db.prepare('SELECT COUNT(*) count,COALESCE(SUM(amount),0) amount FROM billing_refunds WHERE user_id=? AND resolved=0 AND test_mode=0').get(userId);if(!active&&!pending.count){const next=db.prepare('SELECT rowid,* FROM billing_plan_queue WHERE user_id=? ORDER BY created,rowid LIMIT 1').get(userId);if(next){const p=PLANS[next.plan];if(!p)throw Error('Некорректный тариф в очереди.');db.prepare('UPDATE billing_wallets SET plan=?,remaining=?,expires=? WHERE user_id=?').run(next.plan,p.documents??0,clock()+p.days*86400000,userId);db.prepare('DELETE FROM billing_plan_queue WHERE order_id=?').run(next.order_id);w=ensure(userId);active=true}}const queued=db.prepare('SELECT count(*) n FROM billing_plan_queue WHERE user_id=?').get(userId).n;return {balance:w.balance,plan:active?w.plan:null,remaining:active?(w.plan==='daily'?null:w.remaining):0,expires:active?w.expires:null,queued,review:pending.count>0,refundPending:pending.amount}};
  const debit=(userId,requestId,fingerprint='')=>transaction(()=>{
   if(!/^[a-zA-Z0-9-]{16,80}$/.test(requestId||''))throw Error('Некорректный идентификатор операции.');
   const prior=db.prepare('SELECT kind,detail FROM billing_ledger WHERE user_id=? AND request_id=?').get(userId,requestId);
   if(prior){if(prior.detail!==fingerprint)throw Error('Идентификатор операции уже использован для другого документа.');return {kind:prior.kind,...state(userId),repeated:true}}
   if(state(userId).review){const e=Error('Операция приостановлена после возврата. Обратитесь в поддержку.');e.code='REFUND_REVIEW';throw e}
   const w=ensure(userId);let kind;
-  if(w.plan&&w.expires>clock()&&w.remaining>0){kind='document_plan';db.prepare('UPDATE billing_wallets SET remaining=remaining-1 WHERE user_id=?').run(userId)}
-  else if(w.balance>=DOCUMENT_PRICE){kind='document_balance';db.prepare('UPDATE billing_wallets SET balance=balance-? WHERE user_id=?').run(DOCUMENT_PRICE,userId)}
-  else {const e=Error('Недостаточно средств для скачивания документа.');e.code='INSUFFICIENT_FUNDS';throw e}
-  db.prepare('INSERT INTO billing_ledger VALUES (?,?,?,?,?,?,?)').run(randomUUID(),userId,clock(),kind,kind==='document_balance'?-DOCUMENT_PRICE:0,fingerprint,requestId);
+  if(w.plan&&w.expires>clock()&&(w.plan==='daily'||w.remaining>0)){kind='document_plan';if(w.plan!=='daily')db.prepare('UPDATE billing_wallets SET remaining=remaining-1 WHERE user_id=?').run(userId)}
+  else {const e=Error('Для скачивания выберите тариф.');e.code='INSUFFICIENT_FUNDS';throw e}
+  db.prepare('INSERT INTO billing_ledger VALUES (?,?,?,?,?,?,?)').run(randomUUID(),userId,clock(),kind,0,fingerprint,requestId);
   return {kind,...state(userId),repeated:false};
  });
  const adjust=(userId,{balance,plan,resolveRefunds})=>transaction(()=>{
   const old=ensure(userId);
   if(balance!==undefined){if(!Number.isSafeInteger(balance)||balance<0||balance>100000000)throw Error('Укажите корректный баланс.');db.prepare('UPDATE billing_wallets SET balance=? WHERE user_id=?').run(balance,userId);db.prepare('INSERT INTO billing_ledger VALUES (?,?,?,?,?,?,NULL)').run(randomUUID(),userId,clock(),'admin_balance',balance-old.balance,'Изменение администратором')}
-  if(plan!==undefined){if(plan!==null&&!Object.hasOwn(PLANS,plan))throw Error('Неизвестный тариф.');const p=PLANS[plan];db.prepare('UPDATE billing_wallets SET plan=?,remaining=?,expires=? WHERE user_id=?').run(plan,p?.documents||0,p?clock()+p.days*86400000:null,userId);db.prepare('INSERT INTO billing_ledger VALUES (?,?,?,?,?,?,NULL)').run(randomUUID(),userId,clock(),'admin_plan',0,plan||'Тариф отключён')}
+  if(plan!==undefined){if(plan!==null&&!Object.hasOwn(PLANS,plan))throw Error('Неизвестный тариф.');const p=PLANS[plan];db.prepare('UPDATE billing_wallets SET plan=?,remaining=?,expires=? WHERE user_id=?').run(plan,p?.documents??0,p?clock()+p.days*86400000:null,userId);db.prepare('INSERT INTO billing_ledger VALUES (?,?,?,?,?,?,NULL)').run(randomUUID(),userId,clock(),'admin_plan',0,plan||'Тариф отключён')}
   if(resolveRefunds===true){db.prepare('UPDATE billing_refunds SET resolved=1 WHERE user_id=? AND test_mode=0').run(userId);db.prepare('INSERT INTO billing_ledger VALUES (?,?,?,?,?,?,NULL)').run(randomUUID(),userId,clock(),'admin_refund_review',0,'Возврат проверен администратором')}
   return state(userId);
  });

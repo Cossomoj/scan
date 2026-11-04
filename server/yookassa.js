@@ -25,7 +25,7 @@ export function createYooClient(settings, fetchImpl = fetch) {
 
 export function createTestPaymentPayload(order, email) {
   const value = yooAmount(order.amount);
-  const description = order.kind === 'topup' ? 'Пополнение баланса Конторки' : order.kind === 'monthly' ? 'Тариф Конторка на 30 дней' : 'Тариф Конторка на 365 дней';
+  const description = order.kind === 'daily' ? 'Дневной тариф Конторка на 24 часа' : order.kind === 'monthly' ? 'Тариф Конторка на 30 дней' : 'Тариф Конторка на 365 дней';
   return {
     amount: {value, currency: 'RUB'},
     capture: true,
