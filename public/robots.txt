@@ -1,0 +1,4 @@
+User-agent: *
+Disallow: /api/
+
+Sitemap: https://xn--80ataleboo.xn--p1ai/sitemap.xml

@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PDFDocument } from 'pdf-lib';
 import {setupAccounts} from './account.js';
@@ -14,6 +14,7 @@ import {createYooClient} from './yookassa.js';
 import {setupFeedback} from './feedback.js';
 import {setupPrivacy} from './privacy.js';
 import {setupSignatureProcessor} from './signatureProcessor.js';
+import {renderSearchPage} from './seo.js';
 
 const dataDir = resolve(process.env.DATA_DIR || './data');
 mkdirSync(dataDir, { recursive: true, mode: 0o700 });
@@ -78,8 +79,9 @@ app.post('/api/convert', (req,res,next)=>{const t=Date.now();let b=conversionBuc
 });
 setInterval(()=>{const t=Date.now();for(const [ip,b] of conversionBuckets)if(b.until<t)conversionBuckets.delete(ip)},60000).unref();
 app.use('/api',(_req,res)=>res.status(404).json({error:'Не найдено.'}));
-app.use(express.static(resolve('dist'),{index:'index.html',maxAge:'1h'}));
-app.get('/{*path}',(_req,res)=>res.sendFile(resolve('dist/index.html')));
+app.get('/index.html',(_req,res)=>res.redirect(301,'/'));
+app.use(express.static(resolve('dist'),{index:false,maxAge:'1h'}));
+app.get('/{*path}',(req,res,next)=>{try{const html=renderSearchPage(req.path,readFileSync(resolve('dist/index.html'),'utf8'));if(!html)return res.status(404).type('html').send('<!doctype html><html lang="ru"><meta charset="utf-8"><title>Страница не найдена — Конторка</title><h1>Страница не найдена</h1><a href="/">На главную</a></html>');res.type('html').send(html)}catch(error){next(error)}});
 app.use((err,req,res,_next)=>{console.error(err.message); if(err instanceof multer.MulterError) return res.status(400).json({error:`Файл слишком большой (максимум ${req.path==='/api/convert'?50:20} МБ).`}); res.status(400).json({error:err.message?.includes('PDF') ? err.message : 'Не удалось обработать документ. Проверьте файл и попробуйте снова.'});});
 const cleanup=()=>{const result=db.prepare('DELETE FROM requests WHERE expires<=?').run(now());if(result.changes)db.exec('PRAGMA wal_checkpoint(TRUNCATE)');}; cleanup(); setInterval(cleanup,60*60*1000).unref();
 app.listen(process.env.PORT || 3000,'0.0.0.0',()=>console.log('Listening on port '+(process.env.PORT||3000)));
