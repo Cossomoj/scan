@@ -8,6 +8,9 @@ test('search pages expose accurate metadata and the home page has useful HTML be
  const home=renderSearchPage('/',template);
  assert.match(home,/<h1>Подписывайте документы онлайн<\/h1>/);
  assert.match(home,/Одно скачивание бесплатно после регистрации/);
+ assert.match(home,/не является квалифицированной электронной подписью/);
+ const structured=home.match(/<script type="application\/ld\+json">(.*?)<\/script>/);
+ assert.equal(JSON.parse(structured[1])['@type'],'WebSite');
  assert.match(home,/<link rel="canonical" href="https:\/\/xn--80ataleboo\.xn--p1ai\/">/);
  const policy=renderSearchPage('/policy/',template);
  assert.match(policy,/<title>Политика конфиденциальности — Конторка<\/title>/);
