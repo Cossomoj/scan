@@ -15,6 +15,7 @@ import {setupFeedback} from './feedback.js';
 import {setupPrivacy} from './privacy.js';
 import {setupSignatureProcessor} from './signatureProcessor.js';
 import {renderSearchPage} from './seo.js';
+import {securityHeaders} from './securityHeaders.js';
 
 const dataDir = resolve(process.env.DATA_DIR || './data');
 mkdirSync(dataDir, { recursive: true, mode: 0o700 });
@@ -26,7 +27,7 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use('/admin',(_req,res,next)=>{res.set('X-Robots-Tag','noindex, nofollow, noarchive');next()});
-app.use((req, res, next) => { res.set({'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','Cache-Control':'no-store'}); next(); });
+app.use(securityHeaders());
 const buckets=new Map();
 app.use('/api',(req,res,next)=>{const period=req.method==='POST' && req.path==='/requests' ? 3600000 : 60000, limit=period===3600000 ? 10 : 120, key=req.ip+':'+period, time=Date.now(); let bucket=buckets.get(key); if(!bucket||bucket.until<=time) bucket={count:0,until:time+period}; bucket.count++;buckets.set(key,bucket); if(bucket.count>limit)return res.status(429).json({error:'Слишком много запросов. Попробуйте позже.'});next();});
 setInterval(()=>{const time=Date.now();for(const [key,b] of buckets)if(b.until<=time)buckets.delete(key)},60000).unref();
