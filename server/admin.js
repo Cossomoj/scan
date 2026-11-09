@@ -1,33 +1,53 @@
 import {createHash,randomBytes,scryptSync,timingSafeEqual} from 'node:crypto';
 import {createYooClient} from './yookassa.js';
+import nodemailer from 'nodemailer';
 
 const hash=s=>createHash('sha256').update(s).digest('hex');
 const cookie=req=>/(?:^|;\s*)zapdf_admin=([A-Za-z0-9_-]{43})(?:;|$)/.exec(req.headers.cookie||'')?.[1]||'';
-export function setupAdmin(app,db,{clock=Date.now,credential=process.env.ADMIN_CREDENTIAL,production=process.env.NODE_ENV==='production',billing,paymentSettings,verifyPaymentSettings=settings=>createYooClient(settings)('/payments?limit=1')}={}){
+export function setupAdmin(app,db,{clock=Date.now,credential=process.env.ADMIN_CREDENTIAL,production=process.env.NODE_ENV==='production',billing,paymentSettings,sendAdminMail,verifyPaymentSettings=settings=>createYooClient(settings)('/payments?limit=1')}={}){
  if(!db.prepare('PRAGMA table_info(users)').all().some(c=>c.name==='archived_at'))db.exec('ALTER TABLE users ADD COLUMN archived_at INTEGER');
  db.exec(`CREATE TABLE IF NOT EXISTS admin_sessions (token_hash TEXT PRIMARY KEY,expires INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS admin_attempts (ip TEXT NOT NULL,created INTEGER NOT NULL);
  CREATE INDEX IF NOT EXISTS admin_attempts_created ON admin_attempts(created);
+ CREATE TABLE IF NOT EXISTS admin_sessions_v2 (token_hash TEXT PRIMARY KEY,expires INTEGER NOT NULL);
+ CREATE TABLE IF NOT EXISTS admin_email_tokens (token_hash TEXT PRIMARY KEY,expires INTEGER NOT NULL);
+ CREATE TABLE IF NOT EXISTS admin_email_sends (ip TEXT NOT NULL,created INTEGER NOT NULL);
+ CREATE INDEX IF NOT EXISTS admin_email_sends_ip ON admin_email_sends(ip,created);
  CREATE TABLE IF NOT EXISTS download_days (day INTEGER PRIMARY KEY,count INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS admin_metrics_coverage (name TEXT PRIMARY KEY,started_day INTEGER NOT NULL);`);
  const currentDay=Math.floor((clock()+10800000)/86400000)*86400000-10800000;
  for(const name of ['downloads','payments'])db.prepare('INSERT OR IGNORE INTO admin_metrics_coverage(name,started_day) VALUES (?,?)').run(name,currentDay);
  const secure=production?'; Secure':'';
- let failedLogins=0,loginLocked=false;
+ const env=process.env,mailConfigured=!!(env.SMTP_HOST&&env.SMTP_PORT&&env.SMTP_USER&&env.SMTP_PASSWORD&&env.SMTP_FROM);
+ const transport=mailConfigured?nodemailer.createTransport({host:env.SMTP_HOST,port:Number(env.SMTP_PORT),secure:Number(env.SMTP_PORT)===465,requireTLS:Number(env.SMTP_PORT)!==465,auth:{user:env.SMTP_USER,pass:env.SMTP_PASSWORD},connectionTimeout:10000,greetingTimeout:10000,socketTimeout:20000}):null;
+ const send=sendAdminMail||(transport?message=>transport.sendMail(message):null);
  const origin=(req,res,next)=>{const o=req.get('origin');if(o){try{if(new URL(o).host!==req.get('host'))return res.sendStatus(403)}catch{return res.sendStatus(403)}}next()};
  app.use('/api/admin',origin);app.use('/api/metrics',origin);
- const auth=(req,res,next)=>{const token=cookie(req);if(!token||!db.prepare('SELECT 1 FROM admin_sessions WHERE token_hash=? AND expires>?').get(hash(token),clock()))return res.status(401).json({error:'Войдите в кабинет администратора.'});next()};
- app.post('/api/admin/login',(req,res)=>{
-  const time=clock();if(loginLocked)return res.status(429).json({error:'Вход заблокирован после пяти неверных попыток. Перезапустите сервер.'});
+ const auth=(req,res,next)=>{const token=cookie(req);if(!token||!db.prepare('SELECT 1 FROM admin_sessions_v2 WHERE token_hash=? AND expires>?').get(hash(token),clock()))return res.status(401).json({error:'Войдите в кабинет администратора.'});next()};
+ app.post('/api/admin/login',async(req,res)=>{
+  const time=clock();db.prepare('DELETE FROM admin_attempts WHERE created<?').run(time-86400000);
+  if(db.prepare('SELECT COUNT(*) n FROM admin_attempts WHERE ip=? AND created>?').get(req.ip,time-15*60000).n>=5)return res.status(429).json({error:'Слишком много попыток. Попробуйте через 15 минут.'});
   const [salt,digest]=(credential||'').split(':');const password=req.body?.password,login=req.body?.login;
   let valid=false;if(/^[a-f0-9]{32}$/.test(salt||'')&&/^[a-f0-9]{64}$/.test(digest||'')&&typeof password==='string'&&password.length<=256){const actual=scryptSync(password,Buffer.from(salt,'hex'),32);valid=timingSafeEqual(actual,Buffer.from(digest,'hex'))&&login==='Max'}
-  if(!valid){failedLogins++;db.prepare('DELETE FROM admin_attempts WHERE created<?').run(time-86400000);db.prepare('INSERT INTO admin_attempts VALUES (?,?)').run(req.ip,time);if(failedLogins>=5){loginLocked=true;return res.status(429).json({error:'Вход заблокирован после пяти неверных попыток. Перезапустите сервер.'})}return res.status(401).json({error:'Неверный логин или пароль.'})}
-  failedLogins=0;
-  db.prepare('DELETE FROM admin_attempts WHERE ip=?').run(req.ip);db.prepare('DELETE FROM admin_sessions WHERE expires<?').run(time);
-  const raw=randomBytes(32).toString('base64url');db.prepare('INSERT INTO admin_sessions VALUES (?,?)').run(hash(raw),time+8*3600000);
+  if(!valid){db.prepare('INSERT INTO admin_attempts VALUES (?,?)').run(req.ip,time);return res.status(401).json({error:'Неверный логин или пароль.'})}
+  if(!send)return res.status(503).json({error:'Отправка письма временно недоступна.'});
+  db.prepare('DELETE FROM admin_email_sends WHERE created<?').run(time-3600000);
+  if(db.prepare('SELECT COUNT(*) n FROM admin_email_sends WHERE ip=? AND created>?').get(req.ip,time-3600000).n>=5)return res.status(429).json({error:'Слишком много писем. Попробуйте позже.'});
+  db.prepare('DELETE FROM admin_attempts WHERE ip=?').run(req.ip);db.prepare('DELETE FROM admin_email_tokens WHERE expires<=?').run(time);
+  const raw=randomBytes(32).toString('base64url'),tokenHash=hash(raw),link='https://xn--80ataleboo.xn--p1ai/admin#verify='+raw;
+  db.prepare('INSERT INTO admin_email_tokens VALUES (?,?)').run(tokenHash,time+10*60000);
+  db.prepare('INSERT INTO admin_email_sends VALUES (?,?)').run(req.ip,time);
+  try{await send({from:env.SMTP_FROM||'no-reply@xn--80ataleboo.xn--p1ai',to:'maksim@kuchermg.ru',subject:'Подтверждение входа в админпанель Конторки',text:`Для входа в админпанель перейдите по ссылке: ${link}\n\nСсылка действует 10 минут и может быть использована один раз. Если вы не запрашивали вход, проигнорируйте это письмо.`,html:`<p>Для входа в админпанель <a href="${link}">перейдите по ссылке</a>.</p><p>Ссылка действует 10 минут и может быть использована один раз. Если вы не запрашивали вход, проигнорируйте это письмо.</p>`});res.json({ok:true,verificationRequired:true})}
+  catch{db.prepare('DELETE FROM admin_email_tokens WHERE token_hash=?').run(tokenHash);res.status(503).json({error:'Не удалось отправить письмо. Попробуйте позже.'})}
+ });
+ app.post('/api/admin/verify',(req,res)=>{
+  const token=req.body?.token,time=clock();if(typeof token!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(token))return res.status(400).json({error:'Ссылка недействительна или срок её действия истёк.'});
+  const used=db.prepare('DELETE FROM admin_email_tokens WHERE token_hash=? AND expires>? RETURNING token_hash').get(hash(token),time);
+  if(!used)return res.status(400).json({error:'Ссылка недействительна или срок её действия истёк.'});
+  db.prepare('DELETE FROM admin_sessions_v2 WHERE expires<?').run(time);const raw=randomBytes(32).toString('base64url');db.prepare('INSERT INTO admin_sessions_v2 VALUES (?,?)').run(hash(raw),time+8*3600000);
   res.setHeader('Set-Cookie',`zapdf_admin=${raw}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800${secure}`);res.json({ok:true});
  });
- app.post('/api/admin/logout',auth,(req,res)=>{db.prepare('DELETE FROM admin_sessions WHERE token_hash=?').run(hash(cookie(req)));res.setHeader('Set-Cookie',`zapdf_admin=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure}`);res.json({ok:true})});
+ app.post('/api/admin/logout',auth,(req,res)=>{db.prepare('DELETE FROM admin_sessions_v2 WHERE token_hash=?').run(hash(cookie(req)));res.setHeader('Set-Cookie',`zapdf_admin=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure}`);res.json({ok:true})});
  app.get('/api/admin/session',auth,(_req,res)=>res.json({ok:true}));
  app.post('/api/metrics/download',(_req,res)=>{const day=Math.floor((clock()+10800000)/86400000)*86400000-10800000;db.prepare('INSERT INTO download_days VALUES (?,1) ON CONFLICT(day) DO UPDATE SET count=count+1').run(day);res.sendStatus(204)});
  app.get('/api/admin/stats',auth,(_req,res)=>{

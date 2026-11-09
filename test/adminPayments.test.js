@@ -10,7 +10,7 @@ test('dashboard counts confirmed payments by Moscow date and current plans',asyn
  const db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON; CREATE TABLE users(id TEXT PRIMARY KEY,email TEXT,created INTEGER,last_seen INTEGER);CREATE TABLE account_assets(user_id TEXT,id TEXT,data TEXT,updated INTEGER)');
  let now=Date.UTC(2026,10,3,12);const billing=setupBilling(db,{clock:()=>now});
  for(const id of ['monthly','yearly','archived','expired','free','used'])db.prepare('INSERT INTO users VALUES (?,?,?,?)').run(id,id+'@example.test',now,now);
- const app=express();app.use(express.json());const salt=Buffer.alloc(16,7),credential=salt.toString('hex')+':'+scryptSync('test-password',salt,32).toString('hex');setupAdmin(app,db,{billing,credential,clock:()=>now});
+ let adminMail;const app=express();app.use(express.json());const salt=Buffer.alloc(16,7),credential=salt.toString('hex')+':'+scryptSync('test-password',salt,32).toString('hex');setupAdmin(app,db,{billing,credential,clock:()=>now,sendAdminMail:async message=>{adminMail=message}});
  billing.adjust('monthly',{plan:'monthly'});billing.adjust('yearly',{plan:'yearly'});billing.adjust('archived',{plan:'monthly'});billing.adjust('expired',{plan:'yearly'});
  billing.debit('used','free-download-request-00001','document');
  db.prepare('UPDATE users SET archived_at=? WHERE id=?').run(now,'archived');db.prepare('UPDATE billing_wallets SET expires=? WHERE user_id=?').run(now-1,'expired');
@@ -20,7 +20,7 @@ test('dashboard counts confirmed payments by Moscow date and current plans',asyn
  const queuedOrder=billing.order('yearly','monthly');billing.complete(queuedOrder.id,'108',{userId:'yearly',amount:24900,testMode:false});
  billing.refund('104','204',2000,{createdAt:now});billing.refund('104','204',2000,{createdAt:now});billing.refund('105','205',1000,{createdAt:now});
  const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const root=`http://127.0.0.1:${server.address().port}`;
- try{let response=await fetch(root+'/api/admin/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({login:'Max',password:'test-password'})});const cookie=response.headers.get('set-cookie');assert.equal(response.status,200);
+ try{let response=await fetch(root+'/api/admin/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({login:'Max',password:'test-password'})});assert.equal(response.status,200);const token=/#verify=([A-Za-z0-9_-]+)/.exec(adminMail.text)?.[1];assert.ok(token);response=await fetch(root+'/api/admin/verify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token})});const cookie=response.headers.get('set-cookie');assert.equal(response.status,200);
   const stats=await(await fetch(root+'/api/admin/stats',{headers:{cookie}})).json();assert.deepEqual(stats.payments.today,{count:3,amount:34900,refundCount:1,refundAmount:2000,netAmount:32900});assert.deepEqual(stats.payments.week,{count:5,amount:44900,refundCount:1,refundAmount:2000,netAmount:42900});assert.deepEqual(stats.payments.month,{count:6,amount:49900,refundCount:1,refundAmount:2000,netAmount:47900});assert.deepEqual(stats.subscriptions,{total:4,free:3,daily:0,monthly:0,yearly:1,queued:6});assert.equal(stats.refundReviewAccounts,1);
   assert.equal(stats.series.length,30);assert.equal(stats.series.at(-1).day,Date.UTC(2026,10,2,21));assert.equal(stats.series.at(-1).payments,3);assert.equal(stats.series.at(-1).paymentAmount,34900);assert.equal(stats.series.at(-1).refundAmount,2000);assert.equal(stats.series.at(-1).refundCount,1);assert.equal(stats.series.at(-2).payments,2);assert.equal(stats.series.at(-3).payments,1);assert.equal(stats.series.at(-1).users,6);assert.equal(stats.series.at(-1).downloads,0);assert.equal(stats.series.at(-2).downloads,null);assert.equal(stats.series.at(-4).payments,null);assert.equal(stats.series.reduce((sum,item)=>sum+item.payments,0),7);
   db.prepare("UPDATE billing_orders SET status='canceled' WHERE status='pending'").run();response=await fetch(root+'/api/admin/clients/monthly',{method:'DELETE',headers:{cookie}});assert.equal(response.status,200);
@@ -28,19 +28,16 @@ test('dashboard counts confirmed payments by Moscow date and current plans',asyn
  }finally{server.closeAllConnections();await new Promise(r=>server.close(r));db.close()}
 });
 
-test('five failed logins lock every new login until server setup restarts',async()=>{
+test('failed logins are throttled per IP for 15 minutes without blocking others',async()=>{
  const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE users(id TEXT PRIMARY KEY,email TEXT,created INTEGER,last_seen INTEGER);CREATE TABLE account_assets(user_id TEXT,id TEXT,data TEXT,updated INTEGER)');let now=1000;
  const salt=Buffer.alloc(16,9),credential=salt.toString('hex')+':'+scryptSync('right-password',salt,32).toString('hex');
- async function start(){const app=express();app.use(express.json());setupAdmin(app,db,{credential,clock:()=>now});const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));return server}
- const login=(server,password)=>fetch(`http://127.0.0.1:${server.address().port}/api/admin/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({login:'Max',password})});
+ async function start(){const app=express();app.set('trust proxy',1);app.use(express.json());setupAdmin(app,db,{credential,clock:()=>now,sendAdminMail:async()=>{}});const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));return server}
+ const login=(server,password,ip='192.0.2.1')=>fetch(`http://127.0.0.1:${server.address().port}/api/admin/login`,{method:'POST',headers:{'content-type':'application/json','x-forwarded-for':ip},body:JSON.stringify({login:'Max',password})});
  let server=await start();try{
-  for(let i=0;i<4;i++)assert.equal((await login(server,'wrong')).status,401);
-  const loggedIn=await login(server,'right-password');assert.equal(loggedIn.status,200);const session=loggedIn.headers.get('set-cookie'); // Success clears previous failures.
-  for(let i=0;i<4;i++)assert.equal((await login(server,'wrong')).status,401);
-  const locked=await login(server,'wrong');assert.equal(locked.status,429);assert.match((await locked.json()).error,/Перезапустите сервер/);
-  assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/api/admin/stats`,{headers:{cookie:session}})).status,200);
-  now+=24*3600000;assert.equal((await login(server,'right-password')).status,429);
-  server.closeAllConnections();await new Promise(r=>server.close(r));server=await start();assert.equal((await login(server,'right-password')).status,200);
+  for(let i=0;i<5;i++)assert.equal((await login(server,'wrong')).status,401);
+  const locked=await login(server,'right-password');assert.equal(locked.status,429);assert.match((await locked.json()).error,/15 минут/);
+  const other=await login(server,'right-password','192.0.2.2');assert.equal(other.status,200);assert.equal((await other.json()).verificationRequired,true);
+  now+=15*60000+1;assert.equal((await login(server,'right-password')).status,200);
  }finally{server.closeAllConnections();await new Promise(r=>server.close(r));db.close()}
 });
 
@@ -62,8 +59,8 @@ test('refund totals follow the provider date and remain idempotent when correcte
 test('dashboard does not claim a net total before refund reconciliation completes',async()=>{
  const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE users(id TEXT PRIMARY KEY,email TEXT,created INTEGER,last_seen INTEGER);CREATE TABLE account_assets(user_id TEXT,id TEXT,data TEXT,updated INTEGER);CREATE TABLE yookassa_refund_sync(shop_id TEXT PRIMARY KEY,cursor TEXT,last_completed INTEGER,last_error INTEGER)');let now=Date.UTC(2026,10,4,12);const billing=setupBilling(db,{clock:()=>now});db.prepare('INSERT INTO users VALUES (?,?,?,?)').run('u','u@example.test',now,now);
  const order=billing.order('u','daily');billing.complete(order.id,'123',{userId:'u',amount:5000,testMode:false});const settings={get:()=>({shopId:'1516684',mode:'live'})};
- const app=express();app.use(express.json());const salt=Buffer.alloc(16,3),credential=salt.toString('hex')+':'+scryptSync('test-password',salt,32).toString('hex');setupAdmin(app,db,{billing,paymentSettings:settings,credential,clock:()=>now});const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const root=`http://127.0.0.1:${server.address().port}`;
- try{const login=await fetch(root+'/api/admin/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({login:'Max',password:'test-password'})});const cookie=login.headers.get('set-cookie');let stats=await(await fetch(root+'/api/admin/stats',{headers:{cookie}})).json();assert.equal(stats.refundSync.complete,false);assert.equal(stats.payments.today.netAmount,null);assert.equal(stats.series.at(-1).refundAmount,null);
+ let adminMail;const app=express();app.use(express.json());const salt=Buffer.alloc(16,3),credential=salt.toString('hex')+':'+scryptSync('test-password',salt,32).toString('hex');setupAdmin(app,db,{billing,paymentSettings:settings,credential,clock:()=>now,sendAdminMail:async message=>{adminMail=message}});const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));const root=`http://127.0.0.1:${server.address().port}`;
+ try{const login=await fetch(root+'/api/admin/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({login:'Max',password:'test-password'})});assert.equal(login.status,200);const token=/#verify=([A-Za-z0-9_-]+)/.exec(adminMail.text)?.[1];assert.ok(token);const verified=await fetch(root+'/api/admin/verify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token})});assert.equal(verified.status,200);const cookie=verified.headers.get('set-cookie');let stats=await(await fetch(root+'/api/admin/stats',{headers:{cookie}})).json();assert.equal(stats.refundSync.complete,false);assert.equal(stats.payments.today.netAmount,null);assert.equal(stats.series.at(-1).refundAmount,null);
   db.prepare('INSERT INTO yookassa_refund_sync VALUES (?,NULL,?,NULL)').run('1516684',now);stats=await(await fetch(root+'/api/admin/stats',{headers:{cookie}})).json();assert.equal(stats.refundSync.complete,true);assert.equal(stats.payments.today.netAmount,5000);assert.equal(stats.series.at(-1).refundAmount,0);
   db.prepare('UPDATE yookassa_refund_sync SET last_error=?').run(now);stats=await(await fetch(root+'/api/admin/stats',{headers:{cookie}})).json();assert.equal(stats.refundSync.complete,false);assert.equal(stats.refundSync.failed,true);assert.equal(stats.payments.today.netAmount,null);
  }finally{server.closeAllConnections();await new Promise(r=>server.close(r));db.close()}
