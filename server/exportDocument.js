@@ -22,8 +22,9 @@ function elementPng(item,aspect){
 export async function exportServerDocument(original,items,filters={}){
  if(!Array.isArray(items)||items.length>1000||!filters||typeof filters!=='object'||Array.isArray(filters))throw Error('Некорректные параметры документа.');
  const pdf=await PDFDocument.load(original),count=pdf.getPageCount();if(count<1||count>100)throw Error('Поддерживается до 100 страниц.');
- const viewer=await pdfjs.getDocument({data:new Uint8Array(original),isEvalSupported:false,useSystemFonts:true}).promise;
+ const viewerTask=pdfjs.getDocument({data:new Uint8Array(original),isEvalSupported:false,useSystemFonts:true});
  try{
+  const viewer=await viewerTask.promise;
   for(const item of items){
    if(!item||!Number.isInteger(item.page)||item.page<0||item.page>=count||![item.x,item.y,item.width,item.height].every(Number.isFinite)||item.width<=0||item.height<=0||item.width>2||item.height>2||Math.abs(item.x)>2||Math.abs(item.y)>2||!Number.isFinite(item.angle||0)||Math.abs(item.angle||0)>360||typeof(item.text||'')!=='string'||(item.text||'').length>200||!Number.isFinite(item.fontScale??1)||(item.fontScale??1)<.001||(item.fontScale??1)>10)throw Error('Некорректный элемент документа.');
    const view=(await viewer.getPage(item.page+1)).getViewport({scale:1});const x=item.x*view.width,y=item.y*view.height,w=item.width*view.width,h=item.height*view.height;
@@ -34,10 +35,10 @@ export async function exportServerDocument(original,items,filters={}){
   }
   const result=await pdf.save(),coverPages=new Set(items.filter(x=>x.type==='cover').map(x=>x.page));
   if(!coverPages.size&&!Object.values(filters).some(f=>f?.name&&f.name!=='none'))return result;
-  const combined=await PDFDocument.load(result),out=await PDFDocument.create(),render=await pdfjs.getDocument({data:new Uint8Array(result),isEvalSupported:false,useSystemFonts:true}).promise;
-  try{for(let i=0;i<count;i++){const filter=filters[i];if(!coverPages.has(i)&&(!filter||filter.name==='none')){const [p]=await out.copyPages(combined,[i]);out.addPage(p);continue}
+  const combined=await PDFDocument.load(result),out=await PDFDocument.create(),renderTask=pdfjs.getDocument({data:new Uint8Array(result),isEvalSupported:false,useSystemFonts:true});
+  try{const render=await renderTask.promise;for(let i=0;i<count;i++){const filter=filters[i];if(!coverPages.has(i)&&(!filter||filter.name==='none')){const [p]=await out.copyPages(combined,[i]);out.addPage(p);continue}
    const page=await render.getPage(i+1),base=page.getViewport({scale:1}),scale=Math.min(2,2400/Math.max(base.width,base.height)),view=page.getViewport({scale}),canvas=createCanvas(Math.ceil(view.width),Math.ceil(view.height)),ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);await page.render({canvasContext:ctx,viewport:view}).promise;
    const filtered=createCanvas(canvas.width,canvas.height),fctx=filtered.getContext('2d');fctx.filter=scanFilter(filter?.name,filter?.strength);fctx.drawImage(canvas,0,0);const image=await out.embedPng(filtered.toBuffer('image/png'));out.addPage([base.width,base.height]).drawImage(image,{x:0,y:0,width:base.width,height:base.height});
-  }return await out.save()}finally{await render.destroy()}
- }finally{await viewer.destroy()}
+  }return await out.save()}finally{await renderTask.destroy()}
+ }finally{await viewerTask.destroy()}
 }
