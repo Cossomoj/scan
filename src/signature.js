@@ -2,6 +2,24 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_PNG_DATA_LENGTH = 1_300_000;
 const SVG_ELEMENTS = new Set(['svg','g','path','rect','circle','ellipse','line','polyline','polygon','defs','clipPath','mask','linearGradient','radialGradient','stop','title','desc']);
 
+export async function rotateSignatureImage(image,turns) {
+  const n=((turns%4)+4)%4;
+  if(!n) throw new Error('Укажите направление поворота.');
+  const canvas=document.createElement('canvas'),w=image.naturalWidth,h=image.naturalHeight;
+  canvas.width=n%2?h:w;canvas.height=n%2?w:h;
+  const ctx=canvas.getContext('2d');
+  if(n===1){ctx.translate(h,0);ctx.rotate(Math.PI/2)}
+  else if(n===2){ctx.translate(w,h);ctx.rotate(Math.PI)}
+  else {ctx.translate(0,w);ctx.rotate(-Math.PI/2)}
+  ctx.drawImage(image,0,0);
+  const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+  canvas.width=canvas.height=1;
+  if(!blob)throw new Error('Не удалось повернуть изображение.');
+  const url=URL.createObjectURL(blob),rotated=new Image();
+  try{await new Promise((resolve,reject)=>{rotated.onload=resolve;rotated.onerror=reject;rotated.src=url});rotated.release=()=>URL.revokeObjectURL(url);return rotated}
+  catch(error){URL.revokeObjectURL(url);throw error}
+}
+
 function safeSvg(text) {
   const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
   if (doc.doctype || doc.querySelector('parsererror') || doc.documentElement.localName !== 'svg') throw new Error('Не удалось открыть SVG.');

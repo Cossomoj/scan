@@ -2,6 +2,7 @@
 .signature-wizard *{box-sizing:border-box}
 .signature-wizard button,.signature-wizard input{font:inherit}
 .signature-wizard button{cursor:pointer}
+.sw-rotate{display:flex;align-items:center;gap:8px;margin:12px 0;color:#53657b;font-size:13px;flex-wrap:wrap}.sw-rotate>span{margin-right:auto;font-weight:600;color:#182028}.sw-rotate button{min-height:40px;padding:8px 12px;display:inline-flex;align-items:center;gap:6px}
 .signature-wizard button:disabled{opacity:.5;cursor:not-allowed}
 .signature-wizard :is(button,input,[tabindex="0"]):focus-visible{outline:3px solid #84aff3;outline-offset:3px}
 .sw-close{position:absolute;right:20px;top:16px;z-index:2;width:36px;height:36px;border:0;border-radius:8px;background:transparent;color:#53657b;font-size:25px!important;line-height:1}

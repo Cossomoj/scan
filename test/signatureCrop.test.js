@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {resizeSignatureCrop} from '../src/signatureCrop.js';
+import {resizeSignatureCrop,rotateSignatureCrop} from '../src/signatureCrop.js';
 
 const close=(actual,expected)=>assert.ok(Math.abs(actual-expected)<1e-9,`${actual} ≠ ${expected}`);
 test('signature crop corners resize without moving the opposite corner',()=>{
@@ -18,4 +18,13 @@ test('selection can expand sideways even when it touches the image edge',()=>{
  close(resized.x,.2);close(resized.y,0);close(resized.w,.65);close(resized.h,1);
  const left=resizeSignatureCrop(crop,'sw',-.1,.2);
  close(left.x,.1);close(left.w,.6);close(left.h,1);
+});
+test('rotating the image keeps the same selected area and returns after four turns',()=>{
+ const crop={x:.1,y:.2,w:.3,h:.4};
+ const right=rotateSignatureCrop(crop,1);
+ close(right.x,.4);close(right.y,.1);close(right.w,.4);close(right.h,.3);
+ const left=rotateSignatureCrop(crop,-1);
+ close(left.x,.2);close(left.y,.6);close(left.w,.4);close(left.h,.3);
+ for(const n of [4,0]){const back=rotateSignatureCrop(crop,n);for(const key of ['x','y','w','h'])close(back[key],crop[key])}
+ const back=rotateSignatureCrop(right,-1);for(const key of ['x','y','w','h'])close(back[key],crop[key]);
 });
